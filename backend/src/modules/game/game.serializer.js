@@ -18,6 +18,7 @@ export function serializeGameStateForPlayer(engine, recipientPlayerId) {
     status: player.status,
     connected: player.connected,
     isHost: player.isHost,
+    socketId: player.socketId,
     cardCount: (engine.hands[player.id] || []).length
   }));
 

@@ -7,41 +7,58 @@ class VoiceChatService {
     this.isEnabled = false;
     this.onPeersUpdate = null;
     this.socket = null;
+    this._signalListenerAttached = false;
   }
 
   init(socket, onPeersUpdate) {
     this.socket = socket;
     this.onPeersUpdate = onPeersUpdate;
 
-    this.socket.on('voice_signal', async ({ fromSocketId, signal }) => {
-      await this._handleSignal(fromSocketId, signal);
-    });
+    if (!this._signalListenerAttached && this.socket) {
+      this.socket.on('voice_signal', async ({ fromSocketId, signal }) => {
+        await this._handleSignal(fromSocketId, signal);
+      });
+      this._signalListenerAttached = true;
+    }
   }
 
   async startVoice(roomPlayers, myUserId) {
     try {
-      this.localStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        },
-        video: false
-      });
+      if (!this.localStream) {
+        this.localStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
+          video: false
+        });
+      }
 
       this.isEnabled = true;
       this.isMuted = false;
+      this.localStream.getAudioTracks().forEach(track => {
+        track.enabled = true;
+      });
 
       // Connect to other players in room
-      const otherPlayers = roomPlayers.filter(p => p.id !== myUserId && p.socketId);
-      for (const peer of otherPlayers) {
-        await this._initiatePeerConnection(peer.socketId, true);
-      }
+      await this.syncPeers(roomPlayers, myUserId);
 
       return { success: true };
     } catch (err) {
       console.warn('Microphone access denied or unavailable:', err);
       return { success: false, error: err.message };
+    }
+  }
+
+  async syncPeers(roomPlayers, myUserId) {
+    if (!this.isEnabled || !this.localStream || !roomPlayers) return;
+
+    const otherPlayers = roomPlayers.filter(p => p.id !== myUserId && p.socketId);
+    for (const peer of otherPlayers) {
+      if (!this.peers.has(peer.socketId)) {
+        await this._initiatePeerConnection(peer.socketId, true);
+      }
     }
   }
 
@@ -62,7 +79,11 @@ class VoiceChatService {
     // Add local mic tracks
     if (this.localStream) {
       this.localStream.getAudioTracks().forEach(track => {
-        pc.addTrack(track, this.localStream);
+        try {
+          pc.addTrack(track, this.localStream);
+        } catch (e) {
+          // Track already added or renegotiating
+        }
       });
     }
 

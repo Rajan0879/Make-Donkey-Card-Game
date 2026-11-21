@@ -20,7 +20,8 @@ export class GameEngine {
       avatar: p.avatar || null,
       status: PLAYER_STATUS.ACTIVE,
       connected: true,
-      isHost: !!p.isHost
+      isHost: !!p.isHost,
+      socketId: p.socketId || null
     }));
 
     this.winners = [];

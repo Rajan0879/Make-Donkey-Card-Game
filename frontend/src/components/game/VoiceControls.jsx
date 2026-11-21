@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Mic, MicOff, Volume2 } from 'lucide-react';
+import { Mic, MicOff } from 'lucide-react';
 import { voiceChatService } from '../../services/voiceChatService.js';
 
 const MicButton = styled.button`
@@ -45,21 +45,27 @@ const MicButton = styled.button`
 `;
 
 export function VoiceControls({ socket, roomCode, players, myUserId }) {
-  const [isActive, setIsActive] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  // Sync initial state with voiceChatService singleton
+  const [isActive, setIsActive] = useState(voiceChatService.isEnabled);
+  const [isMuted, setIsMuted] = useState(voiceChatService.isMuted);
 
   useEffect(() => {
     if (socket) {
       voiceChatService.init(socket, () => {
-        // Trigger re-render if needed
+        setIsActive(voiceChatService.isEnabled);
+        setIsMuted(voiceChatService.isMuted);
       });
     }
 
-    return () => {
-      // Disconnect voice on leave
-      voiceChatService.leaveVoice();
-    };
-  }, [socket]);
+    // Sync state in case voice is already active from lobby
+    if (voiceChatService.isEnabled) {
+      setIsActive(true);
+      setIsMuted(voiceChatService.isMuted);
+      if (players && players.length > 0) {
+        voiceChatService.syncPeers(players, myUserId);
+      }
+    }
+  }, [socket, players, myUserId]);
 
   const handleToggleVoice = async () => {
     if (!isActive) {
