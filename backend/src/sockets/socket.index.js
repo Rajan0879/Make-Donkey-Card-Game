@@ -1,0 +1,309 @@
+import { roomManager } from '../modules/rooms/room.manager.js';
+import { serializeGameStateForPlayer } from '../modules/game/game.serializer.js';
+import { saveCompletedMatch } from '../services/history.service.js';
+import { ROOM_LIMITS, GAME_STATUS } from '../modules/game/game.constants.js';
+import { logger } from '../utils/logger.js';
+
+export function setupSocketHandlers(io) {
+  io.on('connection', (socket) => {
+    const user = socket.user;
+    logger.info({ userId: user.id, socketId: socket.id }, 'Player connected via Socket.IO');
+
+    // Helper: broadcast private hands to all players in a room
+    const broadcastPrivateGameState = (room) => {
+      if (!room || !room.gameEngine) return;
+      for (const player of room.players) {
+        if (player.socketId) {
+          const privateState = serializeGameStateForPlayer(room.gameEngine, player.id);
+          io.to(player.socketId).emit('game_state_updated', privateState);
+        }
+      }
+    };
+
+    // Helper: start server authoritative 60s turn timer
+    const startTurnTimer = (room) => {
+      if (room.turnTimer) {
+        clearTimeout(room.turnTimer);
+        room.turnTimer = null;
+      }
+
+      if (!room.gameEngine || room.gameEngine.status !== GAME_STATUS.PLAYING || room.gameEngine.paused) {
+        return;
+      }
+
+      const durationMs = Math.max(500, room.gameEngine.turnDeadline - Date.now());
+
+      room.turnTimer = setTimeout(() => {
+        logger.info({ roomId: room.id, turnPlayerId: room.gameEngine.currentTurnId }, 'Turn timed out on server');
+        const timeoutResult = room.gameEngine.processTurnTimeout();
+
+        io.to(room.id).emit('turn_timed_out', timeoutResult);
+
+        if (room.gameEngine.status === GAME_STATUS.FINISHED) {
+          handleGameOver(room);
+        } else {
+          broadcastPrivateGameState(room);
+          startTurnTimer(room);
+        }
+      }, durationMs);
+    };
+
+    const handleGameOver = async (room) => {
+      room.status = GAME_STATUS.FINISHED;
+      if (room.turnTimer) {
+        clearTimeout(room.turnTimer);
+        room.turnTimer = null;
+      }
+
+      const donkeyId = room.gameEngine.donkeyId;
+      const donkeyPlayer = room.players.find(p => p.id === donkeyId);
+
+      logger.info({ roomId: room.id, donkeyId }, 'Game finished! Donkey declared.');
+
+      io.to(room.id).emit('game_finished', {
+        donkeyId,
+        donkeyPlayer,
+        winners: room.gameEngine.winners
+      });
+
+      broadcastPrivateGameState(room);
+
+      // Save match to history
+      await saveCompletedMatch({
+        roomId: room.id,
+        players: room.players,
+        donkeyId
+      });
+    };
+
+    // 1. CREATE ROOM
+    socket.on('create_room', (data, callback) => {
+      try {
+        const room = roomManager.createRoom(user);
+        socket.join(room.id);
+        logger.info({ roomId: room.id, hostId: user.id }, 'Room created');
+
+        if (typeof callback === 'function') {
+          callback({ success: true, room });
+        }
+        socket.emit('room_created', room);
+      } catch (err) {
+        logger.error({ err }, 'Error creating room');
+        if (typeof callback === 'function') callback({ success: false, error: err.message });
+      }
+    });
+
+    // 2. JOIN ROOM
+    socket.on('join_room', ({ roomCode }, callback) => {
+      try {
+        const result = roomManager.joinRoom(roomCode, user);
+        if (!result.success) {
+          if (typeof callback === 'function') callback(result);
+          socket.emit('error', { message: result.error });
+          return;
+        }
+
+        const room = result.room;
+        socket.join(room.id);
+        logger.info({ roomId: room.id, userId: user.id }, 'Player joined room');
+
+        if (typeof callback === 'function') {
+          callback({ success: true, room });
+        }
+
+        io.to(room.id).emit('room_updated', room);
+        io.to(room.id).emit('player_joined', { player: user, room });
+      } catch (err) {
+        logger.error({ err }, 'Error joining room');
+        if (typeof callback === 'function') callback({ success: false, error: err.message });
+      }
+    });
+
+    // 3. READY / NOT READY
+    socket.on('player_ready', ({ roomCode, ready }, callback) => {
+      const room = roomManager.setPlayerReady(roomCode, user.id, ready);
+      if (!room) {
+        if (typeof callback === 'function') callback({ success: false, error: 'Room not found or in-game' });
+        return;
+      }
+
+      io.to(room.id).emit('room_updated', room);
+      io.to(room.id).emit('player_ready_updated', { userId: user.id, ready });
+      if (typeof callback === 'function') callback({ success: true });
+    });
+
+    // 4. START GAME
+    socket.on('start_game', ({ roomCode }, callback) => {
+      const check = roomManager.canStartGame(roomCode, user.id);
+      if (!check.canStart) {
+        if (typeof callback === 'function') callback({ success: false, error: check.error });
+        socket.emit('error', { message: check.error });
+        return;
+      }
+
+      const room = roomManager.startGame(roomCode);
+      logger.info({ roomId: room.id }, 'Game started! Cards distributed.');
+
+      io.to(room.id).emit('game_started', {
+        roomId: room.id,
+        starterId: room.gameEngine.currentStarterId
+      });
+
+      broadcastPrivateGameState(room);
+      startTurnTimer(room);
+
+      if (typeof callback === 'function') callback({ success: true });
+    });
+
+    // 5. PLAY CARD
+    socket.on('play_card', ({ roomCode, cardId }, callback) => {
+      const room = roomManager.getRoom(roomCode);
+      if (!room || !room.gameEngine) {
+        if (typeof callback === 'function') callback({ success: false, error: 'Active game not found' });
+        return;
+      }
+
+      const result = room.gameEngine.playCard(user.id, cardId);
+      if (!result.success) {
+        if (typeof callback === 'function') callback(result);
+        socket.emit('error', { message: result.error });
+        return;
+      }
+
+      // Notify room about card play
+      io.to(room.id).emit('card_played', {
+        playerId: user.id,
+        playRecord: result.playRecord
+      });
+
+      if (result.chaalEnded) {
+        io.to(room.id).emit('chaal_resolved', {
+          resolution: result.resolution,
+          currentStarterId: room.gameEngine.currentStarterId
+        });
+
+        if (result.resolution.isGameOver) {
+          handleGameOver(room);
+          if (typeof callback === 'function') callback({ success: true, gameOver: true });
+          return;
+        }
+      }
+
+      broadcastPrivateGameState(room);
+      startTurnTimer(room);
+
+      if (typeof callback === 'function') callback({ success: true });
+    });
+
+    // 6. REQUEST GAME STATE (On Reconnection or Initial Mount)
+    socket.on('request_game_state', ({ roomCode }) => {
+      const room = roomManager.getRoom(roomCode);
+      if (!room) return;
+
+      if (room.gameEngine) {
+        const privateState = serializeGameStateForPlayer(room.gameEngine, user.id);
+        socket.emit('game_state_updated', privateState);
+      } else {
+        socket.emit('room_updated', room);
+      }
+    });
+
+    // 7. LEAVE ROOM (Intentional)
+    socket.on('leave_room', ({ roomCode }) => {
+      const room = roomManager.getRoom(roomCode);
+      if (!room) return;
+
+      const player = room.players.find(p => p.id === user.id);
+      const isHost = player?.isHost;
+
+      if (room.status === GAME_STATUS.PLAYING) {
+        if (isHost) {
+          // Section 9.3: Host transfer
+          roomManager.removePlayer(room.id, user.id);
+          socket.leave(room.id);
+          io.to(room.id).emit('host_changed', { newHostId: room.hostId });
+          io.to(room.id).emit('player_left', { userId: user.id });
+          broadcastPrivateGameState(room);
+        } else {
+          // Regular player intentional leave cancels the game
+          room.gameEngine.cancelGame();
+          roomManager.clearRoomTimers(room);
+          room.status = GAME_STATUS.CANCELLED;
+          io.to(room.id).emit('game_cancelled', { reason: `${user.username} left the game.` });
+          roomManager.removePlayer(room.id, user.id);
+          socket.leave(room.id);
+          io.to(room.id).emit('room_updated', room);
+        }
+      } else {
+        // Lobby leave
+        const updated = roomManager.removePlayer(room.id, user.id);
+        socket.leave(room.id);
+        if (updated) {
+          io.to(updated.id).emit('player_left', { userId: user.id });
+          io.to(updated.id).emit('room_updated', updated);
+        }
+      }
+    });
+
+    // 8. VOICE CHAT SIGNALING (WebRTC Mesh)
+    socket.on('voice_signal', ({ toSocketId, signal }) => {
+      io.to(toSocketId).emit('voice_signal', {
+        fromSocketId: socket.id,
+        fromUserId: user.id,
+        signal
+      });
+    });
+
+    socket.on('voice_status', ({ roomCode, isMuted }) => {
+      io.to(roomCode).emit('player_voice_status', {
+        userId: user.id,
+        isMuted
+      });
+    });
+
+    // 9. DISCONNECT (Accidental / Socket drop)
+    socket.on('disconnect', () => {
+      const room = roomManager.getRoomByUser(user.id);
+      if (!room) return;
+
+      const player = room.players.find(p => p.id === user.id);
+      if (player) {
+        player.connected = false;
+        player.ready = false;
+      }
+
+      logger.info({ userId: user.id, roomId: room.id }, 'Player disconnected');
+
+      if (room.status === GAME_STATUS.PLAYING && room.gameEngine) {
+        // Section 9.2: Pause game, freeze timer, 60s grace period
+        room.gameEngine.pauseGame();
+        if (room.turnTimer) {
+          clearTimeout(room.turnTimer);
+          room.turnTimer = null;
+        }
+
+        io.to(room.id).emit('game_paused', {
+          disconnectedPlayerId: user.id,
+          graceSeconds: ROOM_LIMITS.RECONNECT_GRACE_SECONDS
+        });
+        broadcastPrivateGameState(room);
+
+        // Schedule 60-second grace cancellation
+        const graceTimer = setTimeout(() => {
+          if (!player.connected && room.status === GAME_STATUS.PLAYING) {
+            logger.info({ roomId: room.id, userId: user.id }, 'Reconnect grace period expired. Cancelling game.');
+            room.gameEngine.cancelGame();
+            room.status = GAME_STATUS.CANCELLED;
+            io.to(room.id).emit('game_cancelled', {
+              reason: `${user.username} failed to reconnect within 60 seconds.`
+            });
+          }
+        }, ROOM_LIMITS.RECONNECT_GRACE_SECONDS * 1000);
+
+        room.disconnectTimers.set(user.id, graceTimer);
+      } else {
+        io.to(room.id).emit('room_updated', room);
+      }
+    });
+  });
+}
