@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { PlayingCard } from '../cards/PlayingCard.jsx';
 import { soundManager } from '../../services/sound/soundManager.js';
+import { CheckCircle2 } from 'lucide-react';
 
 const HandContainer = styled.div`
   display: flex;
@@ -98,6 +99,29 @@ const PlayButton = styled.button`
   }
 `;
 
+const EmptiedCardsBox = styled.div`
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  padding: 10px 20px;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  margin-top: 4px;
+  margin-bottom: 6px;
+  animation: pulse 2s infinite ease-in-out;
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.95; }
+    50% { transform: scale(1.02); opacity: 1; }
+  }
+`;
+
 export function PlayerHand({
   hand = [],
   selectedCardId,
@@ -108,6 +132,8 @@ export function PlayerHand({
   isStarter,
   startingSuit
 }) {
+  const isHandEmpty = hand.length === 0;
+
   // Sort hand by suit and value for clean player experience
   const sortedHand = [...hand].sort((a, b) => {
     if (a.suit === b.suit) return b.value - a.value;
@@ -167,12 +193,20 @@ export function PlayerHand({
         })}
       </CardsGrid>
 
-      <PlayButton
-        disabled={!isMyTurn || !selectedCardId}
-        onClick={() => isMyTurn && selectedCardId && onPlayCard(selectedCardId)}
-      >
-        {!isMyTurn ? "Wait for your turn" : !selectedCardId ? "Select a Card" : "Play Card"}
-      </PlayButton>
+      {/* When player cards end, show efficient safe status instead of Play Card button */}
+      {isHandEmpty ? (
+        <EmptiedCardsBox>
+          <CheckCircle2 size={16} />
+          You emptied all your cards! You are SAFE 🎉
+        </EmptiedCardsBox>
+      ) : (
+        <PlayButton
+          disabled={!isMyTurn || !selectedCardId}
+          onClick={() => isMyTurn && selectedCardId && onPlayCard(selectedCardId)}
+        >
+          {!isMyTurn ? "Wait for your turn" : !selectedCardId ? "Select a Card" : "Play Card"}
+        </PlayButton>
+      )}
     </HandContainer>
   );
 }

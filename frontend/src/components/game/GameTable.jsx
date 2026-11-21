@@ -24,7 +24,7 @@ const TableContainer = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 8px 10px 16px 10px;
+  padding: 8px 10px 24px 10px; margin-bottom: 12px;
   position: fixed;
   top: 0;
   left: 0;
@@ -34,7 +34,7 @@ const TableContainer = styled.div`
   box-sizing: border-box;
 
   @media (max-width: 600px) {
-    padding: 6px 8px 14px 8px;
+    padding: 6px 8px 20px 8px; margin-bottom: 12px;
   }
 `;
 
