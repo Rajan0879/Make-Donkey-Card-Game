@@ -24,7 +24,7 @@ const TableContainer = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: max(8px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
+  padding: 8px 10px 16px 10px;
   position: fixed;
   top: 0;
   left: 0;
@@ -34,7 +34,7 @@ const TableContainer = styled.div`
   box-sizing: border-box;
 
   @media (max-width: 600px) {
-    padding: max(6px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) max(14px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+    padding: 6px 8px 14px 8px;
   }
 `;
 

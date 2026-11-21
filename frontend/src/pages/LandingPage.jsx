@@ -11,7 +11,7 @@ const Container = styled.div`
   max-width: 900px;
   width: 100%;
   margin: 0 auto;
-  padding: max(24px, calc(16px + env(safe-area-inset-top, 0px))) 16px max(24px, calc(16px + env(safe-area-inset-bottom, 0px))) 16px;
+  padding: 24px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;

@@ -15,7 +15,7 @@ const LobbyCard = styled.div`
   padding: 24px;
   max-width: 600px;
   width: calc(100% - 32px);
-  margin: max(24px, calc(16px + env(safe-area-inset-top, 0px))) auto max(24px, calc(16px + env(safe-area-inset-bottom, 0px))) auto;
+  margin: 24px auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 
   @media (max-width: 600px) {
