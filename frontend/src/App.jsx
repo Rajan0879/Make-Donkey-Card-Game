@@ -10,6 +10,10 @@ import { GameTable } from './components/game/GameTable.jsx';
 
 const AppContainer = styled.div`
   min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
 `;

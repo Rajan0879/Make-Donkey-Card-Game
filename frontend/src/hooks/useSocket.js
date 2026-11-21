@@ -20,6 +20,11 @@ export function useSocket() {
   useEffect(() => {
     const socket = socketService.connect(user, token);
 
+    if (socketService.hasListeners) {
+      return;
+    }
+    socketService.hasListeners = true;
+
     socket.on('room_created', (room) => setRoom(room));
     socket.on('room_updated', (room) => setRoom(room));
 
@@ -37,7 +42,7 @@ export function useSocket() {
     });
 
     socket.on('chaal_resolved', (data) => {
-      setLastResolution(data.resolution);
+      setLastResolution(data.resolution, data.completedChaal);
       soundManager.playChaalResolved();
     });
 

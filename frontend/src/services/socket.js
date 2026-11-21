@@ -1,14 +1,23 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+// Ensure local development always talks to localhost:5000 directly
+const isLocal = typeof window !== 'undefined' && 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 
+  (!isLocal ? 'https://make-donkey-backend.onrender.com' : 'http://localhost:5000');
 
 class SocketService {
   constructor() {
     this.socket = null;
+    this.hasListeners = false;
   }
 
   connect(user, token = null) {
-    if (this.socket && this.socket.connected) {
+    if (this.socket) {
+      if (user && this.socket.auth) {
+        this.socket.auth.guestUser = user;
+      }
       return this.socket;
     }
 
@@ -18,7 +27,8 @@ class SocketService {
         guestUser: user
       },
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 10,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000
     });
 

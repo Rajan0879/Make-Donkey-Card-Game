@@ -47,9 +47,9 @@ export const ACE_OF_SPADES_ID = 'spades-A';
 export const ROOM_LIMITS = Object.freeze({
   MIN_PLAYERS: 3,
   MAX_PLAYERS: 6,
-  TURN_TIMEOUT_SECONDS: 120,
+  TURN_TIMEOUT_SECONDS: 90,
   WARNING_SECONDS: 15,
-  RECONNECT_GRACE_SECONDS: 120
+  RECONNECT_GRACE_SECONDS: 90
 });
 
 export const CARDS_PER_PLAYER = Object.freeze({

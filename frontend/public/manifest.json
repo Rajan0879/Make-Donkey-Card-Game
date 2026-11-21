@@ -1,0 +1,22 @@
+{
+  "name": "Make Donkey - Multiplayer Card Game",
+  "short_name": "Make Donkey",
+  "description": "Real-time multiplayer card game. Avoid becoming the Donkey!",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1d14",
+  "theme_color": "#0b1d14",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

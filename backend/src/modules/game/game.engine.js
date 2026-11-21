@@ -106,6 +106,14 @@ export class GameEngine {
       this.chaal.endedByOffSuit = true;
       this.chaal.offSuitPlayerId = playerId;
 
+      const completedChaalSnapshot = {
+        starterId: this.chaal.starterId,
+        startingSuit: this.chaal.startingSuit,
+        playedCards: [...this.chaal.playedCards],
+        endedByOffSuit: true,
+        offSuitPlayerId: playerId
+      };
+
       const resolution = resolveChaal({
         chaal: this.chaal,
         hands: this.hands,
@@ -118,7 +126,8 @@ export class GameEngine {
         success: true,
         playRecord,
         chaalEnded: true,
-        resolution
+        resolution,
+        completedChaalSnapshot
       };
     }
 
@@ -128,6 +137,14 @@ export class GameEngine {
 
     if (chaalComplete) {
       // All active players followed suit!
+      const completedChaalSnapshot = {
+        starterId: this.chaal.starterId,
+        startingSuit: this.chaal.startingSuit,
+        playedCards: [...this.chaal.playedCards],
+        endedByOffSuit: false,
+        offSuitPlayerId: null
+      };
+
       const resolution = resolveChaal({
         chaal: this.chaal,
         hands: this.hands,
@@ -140,7 +157,8 @@ export class GameEngine {
         success: true,
         playRecord,
         chaalEnded: true,
-        resolution
+        resolution,
+        completedChaalSnapshot
       };
     }
 

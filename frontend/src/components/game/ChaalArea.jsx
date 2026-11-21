@@ -2,35 +2,45 @@ import React from 'react';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlayingCard } from '../cards/PlayingCard.jsx';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 const ChaalBox = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
   position: relative;
   z-index: 5;
+  width: 100%;
+`;
+
+const BannerSlot = styled.div`
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 `;
 
 const StartingSuitIndicator = styled.div`
   background: rgba(0, 0, 0, 0.65);
   border: 1px solid ${({ theme }) => theme.colors.goldDark};
   border-radius: ${({ theme }) => theme.radii.full};
-  padding: 4px 14px;
-  font-size: 13px;
+  padding: 3px 12px;
+  font-size: 12px;
   font-weight: 700;
   color: ${({ theme }) => theme.colors.goldLight};
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  margin-bottom: 6px;
 `;
 
 const PlayedCardsRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  min-height: 120px;
+  gap: 8px;
+  min-height: 105px;
   flex-wrap: wrap;
 `;
 
@@ -38,32 +48,85 @@ const CardSlot = styled(motion.div)`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 `;
 
 const PlayerTag = styled.span`
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   color: ${({ theme }) => theme.colors.textMuted};
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.55);
   padding: 1px 6px;
   border-radius: 4px;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `;
 
-export function ChaalArea({ chaal, players }) {
+/* 5-Second Chaal Resolution Banner with zero layout shift */
+const ResolutionBanner = styled(motion.div)`
+  background: ${({ $isOffSuit }) =>
+    $isOffSuit ? 'rgba(220, 38, 38, 0.95)' : 'rgba(16, 185, 129, 0.95)'};
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  border-radius: 12px;
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  backdrop-filter: blur(4px);
+`;
+
+export function ChaalArea({ chaal, players, recentCompletedChaal, lastResolution }) {
   const playerMap = new Map((players || []).map(p => [p.id, p.username]));
+
+  // If a Chaal just ended within 5 seconds, show completed cards and the resolution banner
+  const isPreviewingCompleted = Boolean(recentCompletedChaal && recentCompletedChaal.playedCards?.length > 0);
+  const displayChaal = isPreviewingCompleted ? recentCompletedChaal : chaal;
+  const isOffSuit = lastResolution?.type === 'off-suit';
 
   return (
     <ChaalBox>
-      {chaal.startingSuit && (
+      <BannerSlot>
+        <AnimatePresence>
+          {isPreviewingCompleted && lastResolution && (
+            <ResolutionBanner
+              $isOffSuit={isOffSuit}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.2 }}
+            >
+              {isOffSuit ? (
+                <>
+                  <AlertTriangle size={15} />
+                  <span>Off-Suit Penalty! Starter takes all cards</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={15} />
+                  <span>All Followed Suit! Cards Discarded</span>
+                </>
+              )}
+            </ResolutionBanner>
+          )}
+        </AnimatePresence>
+      </BannerSlot>
+
+      {displayChaal.startingSuit && (
         <StartingSuitIndicator>
-          Starting Suit: <span style={{ textTransform: 'capitalize' }}>{chaal.startingSuit}</span>
+          Starting Suit: <span style={{ textTransform: 'capitalize' }}>{displayChaal.startingSuit}</span>
         </StartingSuitIndicator>
       )}
 
       <PlayedCardsRow>
         <AnimatePresence>
-          {chaal.playedCards.map((play, index) => {
+          {displayChaal.playedCards.map((play, index) => {
             const playerName = playerMap.get(play.playerId) || 'Player';
             return (
               <CardSlot

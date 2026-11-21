@@ -14,7 +14,10 @@ export const GlobalStyle = createGlobalStyle`
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    overflow-y: auto;
     min-height: 100vh;
+    min-height: 100dvh;
+    width: 100%;
   }
 
   button {
@@ -28,6 +31,21 @@ export const GlobalStyle = createGlobalStyle`
   input, select, textarea {
     font-family: inherit;
     outline: none;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .animate-spin {
+    animation: spin 1s linear infinite;
   }
 
   /* Custom Scrollbars */

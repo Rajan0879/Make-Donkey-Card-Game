@@ -39,6 +39,14 @@ export function setupSocketHandlers(io) {
 
         io.to(room.id).emit('turn_timed_out', timeoutResult);
 
+        if (timeoutResult.resolution) {
+          io.to(room.id).emit('chaal_resolved', {
+            resolution: timeoutResult.resolution,
+            currentStarterId: room.gameEngine.currentStarterId,
+            completedChaal: { ...room.gameEngine.chaal }
+          });
+        }
+
         if (room.gameEngine.status === GAME_STATUS.FINISHED) {
           handleGameOver(room);
         } else {
@@ -79,9 +87,12 @@ export function setupSocketHandlers(io) {
     // 1. CREATE ROOM
     socket.on('create_room', (data, callback) => {
       try {
+        if (data && data.username) {
+          user.username = data.username.trim();
+        }
         const room = roomManager.createRoom(user);
         socket.join(room.id);
-        logger.info({ roomId: room.id, hostId: user.id }, 'Room created');
+        logger.info({ roomId: room.id, hostId: user.id, username: user.username }, 'Room created');
 
         if (typeof callback === 'function') {
           callback({ success: true, room });
@@ -94,8 +105,11 @@ export function setupSocketHandlers(io) {
     });
 
     // 2. JOIN ROOM
-    socket.on('join_room', ({ roomCode }, callback) => {
+    socket.on('join_room', ({ roomCode, username }, callback) => {
       try {
+        if (username) {
+          user.username = username.trim();
+        }
         const result = roomManager.joinRoom(roomCode, user);
         if (!result.success) {
           if (typeof callback === 'function') callback(result);
@@ -105,7 +119,7 @@ export function setupSocketHandlers(io) {
 
         const room = result.room;
         socket.join(room.id);
-        logger.info({ roomId: room.id, userId: user.id }, 'Player joined room');
+        logger.info({ roomId: room.id, userId: user.id, username: user.username }, 'Player joined room');
 
         if (typeof callback === 'function') {
           callback({ success: true, room });
@@ -179,7 +193,8 @@ export function setupSocketHandlers(io) {
       if (result.chaalEnded) {
         io.to(room.id).emit('chaal_resolved', {
           resolution: result.resolution,
-          currentStarterId: room.gameEngine.currentStarterId
+          currentStarterId: room.gameEngine.currentStarterId,
+          completedChaal: result.completedChaalSnapshot
         });
 
         if (result.resolution.isGameOver) {

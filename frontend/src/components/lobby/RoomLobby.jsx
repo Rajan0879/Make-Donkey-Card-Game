@@ -4,24 +4,52 @@ import { useSocket } from '../../hooks/useSocket.js';
 import { useAuthStore } from '../../store/authStore.js';
 import { useRoomStore } from '../../store/roomStore.js';
 import { VoiceControls } from '../game/VoiceControls.jsx';
-import { Copy, Check, Users, Play, Crown, LogOut } from 'lucide-react';
+import { SoundToggle } from '../common/SoundToggle.jsx';
+import { getPlayerAvatar } from '../../utils/avatarUtils.js';
+import { Copy, Check, Users, Play, Crown, LogOut, RotateCw, Loader2 } from 'lucide-react';
 
 const LobbyCard = styled.div`
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
   border-radius: 16px;
-  padding: 32px;
+  padding: 24px;
   max-width: 600px;
-  width: 100%;
-  margin: 40px auto;
+  width: calc(100% - 32px);
+  margin: 24px auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+
+  @media (max-width: 600px) {
+    padding: 16px;
+    width: calc(100% - 20px);
+    margin: 16px auto;
+  }
 `;
 
 const Header = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  @media (max-width: 500px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+`;
+
+const HeaderControls = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+
+  @media (max-width: 500px) {
+    justify-content: space-between;
+    width: 100%;
+  }
 `;
 
 const Title = styled.h2`
@@ -80,20 +108,30 @@ const ReadyBadge = styled.span`
 
 const ActionRow = styled.div`
   display: flex;
-  gap: 12px;
+  gap: 10px;
   margin-top: 24px;
+  width: 100%;
+  box-sizing: border-box;
+
+  @media (max-width: 500px) {
+    flex-direction: column;
+    gap: 8px;
+  }
 `;
 
 const Button = styled.button`
   flex: 1;
-  padding: 14px;
+  padding: 12px 14px;
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  white-space: nowrap;
+  box-sizing: border-box;
+  width: 100%;
 
   background: ${({ $primary, theme }) =>
     $primary ? theme.colors.gold : theme.colors.surfaceLight};
@@ -116,6 +154,7 @@ export function RoomLobby({ onLeave }) {
   const { user } = useAuthStore();
   const { room } = useRoomStore();
   const [copied, setCopied] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
 
   if (!room) return null;
 
@@ -134,7 +173,10 @@ export function RoomLobby({ onLeave }) {
   };
 
   const handleStart = () => {
+    if (isStarting) return;
+    setIsStarting(true);
     socket.emit('start_game', { roomCode: room.code }, (res) => {
+      setIsStarting(false);
       if (res && !res.success) {
         alert(res.error);
       }
@@ -158,7 +200,8 @@ export function RoomLobby({ onLeave }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <HeaderControls>
+          <SoundToggle />
           <VoiceControls
             socket={socket}
             roomCode={room.code}
@@ -169,25 +212,42 @@ export function RoomLobby({ onLeave }) {
             {room.code}
             {copied ? <Check size={16} /> : <Copy size={16} />}
           </CodeBadge>
-        </div>
+        </HeaderControls>
       </Header>
 
       <PlayerList>
-        {room.players.map((p) => (
-          <PlayerRow key={p.id}>
-            <PlayerMeta>
-              <strong>{p.username}</strong>
-              {p.isHost && (
-                <span title="Host" style={{ color: '#e5b842', display: 'flex' }}>
-                  <Crown size={15} />
+        {room.players.map((p, idx) => {
+          const avatar = getPlayerAvatar(idx);
+          return (
+            <PlayerRow key={p.id}>
+              <PlayerMeta>
+                <span
+                  style={{
+                    background: avatar.bg,
+                    borderRadius: '50%',
+                    width: 32,
+                    height: 32,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 18
+                  }}
+                >
+                  {avatar.emoji}
                 </span>
-              )}
-            </PlayerMeta>
-            <ReadyBadge $ready={p.ready}>
-              {p.ready ? 'Ready' : 'Not Ready'}
-            </ReadyBadge>
-          </PlayerRow>
-        ))}
+                <strong>{p.username}</strong>
+                {p.isHost && (
+                  <span title="Host" style={{ color: '#e5b842', display: 'flex' }}>
+                    <Crown size={15} />
+                  </span>
+                )}
+              </PlayerMeta>
+              <ReadyBadge $ready={p.ready}>
+                {p.ready ? 'Ready' : 'Not Ready'}
+              </ReadyBadge>
+            </PlayerRow>
+          );
+        })}
       </PlayerList>
 
       <ActionRow>
@@ -196,8 +256,16 @@ export function RoomLobby({ onLeave }) {
         </Button>
 
         {isHost && (
-          <Button $primary disabled={!canStart} onClick={handleStart}>
-            <Play size={16} /> Start Game
+          <Button $primary disabled={!canStart || isStarting} onClick={handleStart}>
+            {isStarting ? (
+              <>
+                <Loader2 size={16} className="animate-spin" /> Starting...
+              </>
+            ) : (
+              <>
+                <Play size={16} /> Start Game
+              </>
+            )}
           </Button>
         )}
 
