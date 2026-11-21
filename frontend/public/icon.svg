@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient: Deep Felt Casino Green -->
+    <radialGradient id="bg" cx="50%" cy="35%" r="75%" fx="40%" fy="25%">
+      <stop offset="0%" stop-color="#144229" />
+      <stop offset="65%" stop-color="#0b2416" />
+      <stop offset="100%" stop-color="#050e09" />
+    </radialGradient>
+
+    <!-- Gold Border Gradient -->
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe27a" />
+      <stop offset="35%" stop-color="#e5b842" />
+      <stop offset="70%" stop-color="#c99723" />
+      <stop offset="100%" stop-color="#805b0d" />
+    </linearGradient>
+
+    <!-- Card Subtle Shadow -->
+    <filter id="shadow" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.65" />
+    </filter>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Base Rounded Rectangle for App Icon -->
+  <rect width="512" height="512" rx="108" fill="url(#bg)" />
+
+  <!-- Outer Luxurious Gold Border -->
+  <rect x="16" y="16" width="480" height="480" rx="92" fill="none" stroke="url(#gold)" stroke-width="8" opacity="0.9" />
+  <rect x="28" y="28" width="456" height="456" rx="80" fill="none" stroke="url(#gold)" stroke-width="2" stroke-dasharray="8 6" opacity="0.4" />
+
+  <!-- Background Cards Fan (Left Card: Ace of Spades) -->
+  <g transform="translate(195, 230) rotate(-16) translate(-70, -100)" filter="url(#shadow)">
+    <rect width="140" height="200" rx="12" fill="#ffffff" stroke="#d5d5d5" stroke-width="2" />
+    <text x="16" y="32" font-family="-apple-system, BlinkMacSystemFont, Arial, sans-serif" font-weight="900" font-size="24" fill="#1c242c">A</text>
+    <text x="16" y="52" font-size="20" fill="#1c242c">♠</text>
+    <text x="70" y="125" font-size="52" text-anchor="middle" fill="#1c242c">♠</text>
+  </g>
+
+  <!-- Background Cards Fan (Right Card: King of Hearts) -->
+  <g transform="translate(315, 230) rotate(16) translate(-70, -100)" filter="url(#shadow)">
+    <rect width="140" height="200" rx="12" fill="#ffffff" stroke="#d5d5d5" stroke-width="2" />
+    <text x="16" y="32" font-family="-apple-system, BlinkMacSystemFont, Arial, sans-serif" font-weight="900" font-size="24" fill="#e03e3e">K</text>
+    <text x="16" y="52" font-size="20" fill="#e03e3e">♥</text>
+    <text x="70" y="125" font-size="52" text-anchor="middle" fill="#e03e3e">♥</text>
+  </g>
+
+  <!-- Center Card (Ace of Diamonds) -->
+  <g transform="translate(256, 215) translate(-75, -105)" filter="url(#shadow)">
+    <rect width="150" height="215" rx="14" fill="#fdfdfd" stroke="#c8a846" stroke-width="3" />
+    <text x="16" y="34" font-family="-apple-system, BlinkMacSystemFont, Arial, sans-serif" font-weight="900" font-size="26" fill="#e5b842">A</text>
+    <text x="16" y="56" font-size="22" fill="#e5b842">♦</text>
+    <text x="75" y="132" font-size="56" text-anchor="middle" fill="#e5b842">♦</text>
+  </g>
+
+  <!-- Donkey Mascot (Large center badge / emoji) -->
+  <g filter="url(#glow)">
+    <circle cx="256" cy="225" r="82" fill="#0b2416" stroke="url(#gold)" stroke-width="5" />
+    <text x="256" y="260" font-size="104" text-anchor="middle" font-family="'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif">🫏</text>
+  </g>
+
+  <!-- Title Ribbon Banner at Bottom -->
+  <g filter="url(#shadow)">
+    <rect x="56" y="375" width="400" height="74" rx="20" fill="#0a1910" stroke="url(#gold)" stroke-width="3" />
+    <text x="256" y="426" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Impact, Arial Black, sans-serif" font-weight="900" font-size="36" fill="url(#gold)" text-anchor="middle" letter-spacing="3">MAKE DONKEY</text>
+  </g>
+</svg>
