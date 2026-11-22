@@ -6,7 +6,7 @@ import { useRoomStore } from '../../store/roomStore.js';
 import { VoiceControls } from '../game/VoiceControls.jsx';
 import { SoundToggle } from '../common/SoundToggle.jsx';
 import { getPlayerAvatar } from '../../utils/avatarUtils.js';
-import { Copy, Check, Users, Play, Crown, LogOut, RotateCw, Loader2, AlertCircle, Wifi, WifiOff } from 'lucide-react';
+import { Copy, Check, Users, Play, Crown, LogOut, RotateCw, Loader2, AlertCircle, Wifi, WifiOff, UserX } from 'lucide-react';
 
 const LobbyCard = styled.div`
   background: ${({ theme }) => theme.colors.surface};
@@ -148,6 +148,27 @@ const ReadyBadge = styled.span`
     $ready ? theme.colors.success : theme.colors.danger};
 `;
 
+const KickButton = styled.button`
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+  padding: 4px 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #ef4444;
+    color: #fff;
+    transform: translateY(-1px);
+  }
+`;
+
 const StatusBanner = styled.div`
   display: flex;
   align-items: center;
@@ -261,6 +282,17 @@ export function RoomLobby({ onLeave }) {
     if (onLeave) onLeave();
   };
 
+  const handleKickPlayer = (targetUserId, targetName) => {
+    if (!isHost) return;
+    if (window.confirm(`Are you sure you want to remove ${targetName} from the room?`)) {
+      socket.emit('kick_player', { roomCode: room.code, targetUserId }, (res) => {
+        if (res && !res.success) {
+          alert(res.error || 'Failed to remove player');
+        }
+      });
+    }
+  };
+
   const unreadyPlayers = room.players.filter(p => !p.ready);
   const notEnoughPlayers = room.players.length < 3;
   const canStart = isHost && !notEnoughPlayers && unreadyPlayers.length === 0;
@@ -351,9 +383,22 @@ export function RoomLobby({ onLeave }) {
                 </PlayerNameCol>
               </PlayerMeta>
 
-              <ReadyBadge $ready={p.ready}>
-                {p.ready ? 'Ready' : 'Not Ready'}
-              </ReadyBadge>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <ReadyBadge $ready={p.ready}>
+                  {p.ready ? 'Ready' : 'Not Ready'}
+                </ReadyBadge>
+
+                {/* Host kick/remove button for other players in lobby */}
+                {isHost && p.id !== user.id && (
+                  <KickButton
+                    onClick={() => handleKickPlayer(p.id, p.username)}
+                    title={`Remove ${p.username} from room`}
+                  >
+                    <UserX size={13} />
+                    <span>Remove</span>
+                  </KickButton>
+                )}
+              </div>
             </PlayerRow>
           );
         })}

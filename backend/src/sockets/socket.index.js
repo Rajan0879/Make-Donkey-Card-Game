@@ -317,6 +317,55 @@ export function setupSocketHandlers(io) {
       }
     });
 
+    // 7.1 KICK / REMOVE PLAYER (Host Privilege in Lobby)
+    socket.on('kick_player', ({ roomCode, targetUserId }, callback) => {
+      const room = roomManager.getRoom(roomCode);
+      if (!room) {
+        if (typeof callback === 'function') callback({ success: false, error: 'Room not found' });
+        return;
+      }
+
+      // Verify request is from room host
+      if (room.hostId !== user.id) {
+        if (typeof callback === 'function') callback({ success: false, error: 'Only the room host can remove players' });
+        return;
+      }
+
+      if (room.status !== GAME_STATUS.WAITING) {
+        if (typeof callback === 'function') callback({ success: false, error: 'Cannot remove players once game has started' });
+        return;
+      }
+
+      if (targetUserId === user.id) {
+        if (typeof callback === 'function') callback({ success: false, error: 'Host cannot kick themselves' });
+        return;
+      }
+
+      const targetPlayer = room.players.find(p => p.id === targetUserId);
+      if (!targetPlayer) {
+        if (typeof callback === 'function') callback({ success: false, error: 'Player not found in room' });
+        return;
+      }
+
+      // Remove target from room
+      const updated = roomManager.removePlayer(room.id, targetUserId);
+
+      // Notify the kicked player specifically
+      if (targetPlayer.socketId) {
+        io.to(targetPlayer.socketId).emit('player_kicked', {
+          reason: 'You were removed from the room by the host.'
+        });
+      }
+
+      // Notify remaining room members
+      io.to(room.id).emit('player_left', { userId: targetUserId, username: targetPlayer.username });
+      if (updated) {
+        io.to(room.id).emit('room_updated', updated);
+      }
+
+      if (typeof callback === 'function') callback({ success: true });
+    });
+
     // 8. VOICE CHAT SIGNALING (WebRTC Mesh)
     socket.on('voice_signal', ({ toSocketId, signal }) => {
       io.to(toSocketId).emit('voice_signal', {

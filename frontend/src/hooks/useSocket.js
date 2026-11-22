@@ -89,6 +89,13 @@ export function useSocket() {
         resetGame();
       });
 
+      socket.on('player_kicked', (data) => {
+        alert(data.reason || 'You were removed from the room by the host.');
+        setRoom(null);
+        resetGame();
+        window.history.pushState(null, '', '/');
+      });
+
       socket.on('game_finished', (data) => {
         setDonkeyAnnouncement(data);
         soundManager.playDonkeyDeclared();
