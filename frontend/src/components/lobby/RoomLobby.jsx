@@ -72,6 +72,25 @@ const CodeBadge = styled.div`
   cursor: pointer;
 `;
 
+const RefreshButton = styled.button`
+  background: ${({ theme }) => theme.colors.surfaceLight};
+  border: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
+  color: ${({ theme }) => theme.colors.textMuted};
+  padding: 8px 10px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: #fff;
+    border-color: ${({ theme }) => theme.colors.gold};
+    transform: translateY(-1px);
+  }
+`;
+
 const PlayerList = styled.div`
   display: flex;
   flex-direction: column;
@@ -189,9 +208,10 @@ const Button = styled.button`
 export function RoomLobby({ onLeave }) {
   const socket = useSocket();
   const { user } = useAuthStore();
-  const { room } = useRoomStore();
+  const { room, setRoom } = useRoomStore();
   const [copied, setCopied] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   if (!room) return null;
 
@@ -200,11 +220,25 @@ export function RoomLobby({ onLeave }) {
   const isReady = me?.ready;
 
   const copyCode = () => {
-    // Copies clean room link to clipboard for 1-tap join
-    const inviteLink = `${window.location.origin}/room/${room.code}`;
-    navigator.clipboard.writeText(inviteLink);
+    // Only copies the 6-character room code
+    navigator.clipboard.writeText(room.code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleManualRefresh = () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    // Re-sync lobby room state from server
+    socket.emit('request_game_state', { roomCode: room.code });
+    socket.emit('join_room', { roomCode: room.code, username: user?.username }, (res) => {
+      if (res && res.success) {
+        setRoom(res.room);
+      }
+    });
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 600);
   };
 
   const toggleReady = () => {
@@ -242,6 +276,9 @@ export function RoomLobby({ onLeave }) {
         </div>
 
         <HeaderControls>
+          <RefreshButton onClick={handleManualRefresh} title="Sync / Refresh Lobby">
+            <RotateCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
+          </RefreshButton>
           <SoundToggle />
           <VoiceControls
             socket={socket}
@@ -249,7 +286,7 @@ export function RoomLobby({ onLeave }) {
             players={room.players}
             myUserId={user.id}
           />
-          <CodeBadge onClick={copyCode} title="Click to copy invite link">
+          <CodeBadge onClick={copyCode} title="Click to copy room code">
             {room.code}
             {copied ? <Check size={16} /> : <Copy size={16} />}
           </CodeBadge>

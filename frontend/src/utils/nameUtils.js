@@ -11,3 +11,4 @@ export function formatPlayerName(name, maxChars = 5) {
   if (str.length <= maxChars) return str;
   return str.slice(0, maxChars);
 }
+
