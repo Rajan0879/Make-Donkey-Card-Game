@@ -6,7 +6,7 @@ import { useRoomStore } from '../../store/roomStore.js';
 import { VoiceControls } from '../game/VoiceControls.jsx';
 import { SoundToggle } from '../common/SoundToggle.jsx';
 import { getPlayerAvatar } from '../../utils/avatarUtils.js';
-import { Copy, Check, Users, Play, Crown, LogOut, RotateCw, Loader2 } from 'lucide-react';
+import { Copy, Check, Users, Play, Crown, LogOut, RotateCw, Loader2, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 
 const LobbyCard = styled.div`
   background: ${({ theme }) => theme.colors.surface};
@@ -95,6 +95,29 @@ const PlayerMeta = styled.div`
   gap: 12px;
 `;
 
+const PlayerNameCol = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const OnlineIndicator = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: ${({ $online }) => ($online ? '#10b981' : '#ef4444')};
+`;
+
+const OnlineDot = styled.span`
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: ${({ $online }) => ($online ? '#10b981' : '#ef4444')};
+  box-shadow: 0 0 6px ${({ $online }) => ($online ? '#10b981' : '#ef4444')};
+`;
+
 const ReadyBadge = styled.span`
   padding: 4px 10px;
   border-radius: 6px;
@@ -106,10 +129,24 @@ const ReadyBadge = styled.span`
     $ready ? theme.colors.success : theme.colors.danger};
 `;
 
+const StatusBanner = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  background: rgba(229, 184, 66, 0.12);
+  border: 1px solid rgba(229, 184, 66, 0.3);
+  color: ${({ theme }) => theme.colors.gold};
+`;
+
 const ActionRow = styled.div`
   display: flex;
   gap: 10px;
-  margin-top: 24px;
+  margin-top: 16px;
   width: 100%;
   box-sizing: border-box;
 
@@ -163,7 +200,9 @@ export function RoomLobby({ onLeave }) {
   const isReady = me?.ready;
 
   const copyCode = () => {
-    navigator.clipboard.writeText(room.code);
+    // Copies clean room link to clipboard for 1-tap join
+    const inviteLink = `${window.location.origin}/room/${room.code}`;
+    navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -188,7 +227,9 @@ export function RoomLobby({ onLeave }) {
     if (onLeave) onLeave();
   };
 
-  const canStart = isHost && room.players.length >= 3 && room.players.every(p => p.ready);
+  const unreadyPlayers = room.players.filter(p => !p.ready);
+  const notEnoughPlayers = room.players.length < 3;
+  const canStart = isHost && !notEnoughPlayers && unreadyPlayers.length === 0;
 
   return (
     <LobbyCard>
@@ -196,7 +237,7 @@ export function RoomLobby({ onLeave }) {
         <div>
           <Title>Game Lobby</Title>
           <div style={{ color: '#888', fontSize: '13px', marginTop: 4 }}>
-            Waiting for players ({room.players.length}/6)
+            Players in room: {room.players.length}/6 (Min 3 required)
           </div>
         </div>
 
@@ -208,16 +249,35 @@ export function RoomLobby({ onLeave }) {
             players={room.players}
             myUserId={user.id}
           />
-          <CodeBadge onClick={copyCode} title="Click to copy room code">
+          <CodeBadge onClick={copyCode} title="Click to copy invite link">
             {room.code}
             {copied ? <Check size={16} /> : <Copy size={16} />}
           </CodeBadge>
         </HeaderControls>
       </Header>
 
+      {/* Helpful Status Banner for Players & Host */}
+      {notEnoughPlayers ? (
+        <StatusBanner>
+          <AlertCircle size={16} />
+          Waiting for at least 3 players to join ({room.players.length}/3 joined)
+        </StatusBanner>
+      ) : unreadyPlayers.length > 0 ? (
+        <StatusBanner>
+          <AlertCircle size={16} />
+          Waiting for: {unreadyPlayers.map(p => p.username).join(', ')} to mark Ready
+        </StatusBanner>
+      ) : (
+        <StatusBanner style={{ background: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.3)', color: '#34d399' }}>
+          <Check size={16} />
+          All players ready! Host can start the game now.
+        </StatusBanner>
+      )}
+
       <PlayerList>
         {room.players.map((p, idx) => {
           const avatar = getPlayerAvatar(idx);
+          const isOnline = p.connected !== false;
           return (
             <PlayerRow key={p.id}>
               <PlayerMeta>
@@ -225,23 +285,35 @@ export function RoomLobby({ onLeave }) {
                   style={{
                     background: avatar.bg,
                     borderRadius: '50%',
-                    width: 32,
-                    height: 32,
+                    width: 34,
+                    height: 34,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: 18
+                    fontSize: 18,
+                    position: 'relative'
                   }}
                 >
                   {avatar.emoji}
                 </span>
-                <strong>{p.username}</strong>
-                {p.isHost && (
-                  <span title="Host" style={{ color: '#e5b842', display: 'flex' }}>
-                    <Crown size={15} />
-                  </span>
-                )}
+
+                <PlayerNameCol>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <strong>{p.username}</strong>
+                    {p.isHost && (
+                      <span title="Host" style={{ color: '#e5b842', display: 'flex' }}>
+                        <Crown size={14} />
+                      </span>
+                    )}
+                  </div>
+                  {/* Online/Offline status indicator */}
+                  <OnlineIndicator $online={isOnline}>
+                    <OnlineDot $online={isOnline} />
+                    {isOnline ? 'Online' : 'Reconnecting...'}
+                  </OnlineIndicator>
+                </PlayerNameCol>
               </PlayerMeta>
+
               <ReadyBadge $ready={p.ready}>
                 {p.ready ? 'Ready' : 'Not Ready'}
               </ReadyBadge>

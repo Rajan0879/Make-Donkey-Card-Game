@@ -1,10 +1,11 @@
 import React from 'react';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, History, AlertCircle } from 'lucide-react';
+import { X, History } from 'lucide-react';
 import { PlayingCard } from '../cards/PlayingCard.jsx';
+import { formatPlayerName } from '../../utils/nameUtils.js';
 
-const Overlay = styled(motion.div)`
+const ModalOverlay = styled(motion.div)`
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.85);
@@ -14,31 +15,32 @@ const Overlay = styled(motion.div)`
   align-items: center;
   justify-content: center;
   padding: 16px;
+  box-sizing: border-box;
 `;
 
 const ModalContent = styled.div`
   background: ${({ theme }) => theme.colors.surface};
-  border: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
+  border: 1px solid ${({ theme }) => theme.colors.gold};
   border-radius: 16px;
   width: 100%;
-  max-width: 520px;
-  max-height: 82vh;
+  max-width: 550px;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
   overflow: hidden;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
 `;
 
-const Header = styled.div`
+const ModalHeader = styled.div`
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  background: ${({ theme }) => theme.colors.surfaceLight};
-  border-bottom: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
+  background: rgba(0, 0, 0, 0.3);
 `;
 
-const Title = styled.h3`
+const ModalTitle = styled.h3`
   font-size: 16px;
   font-weight: 800;
   color: ${({ theme }) => theme.colors.goldLight};
@@ -50,8 +52,8 @@ const Title = styled.h3`
 const CloseButton = styled.button`
   background: transparent;
   color: ${({ theme }) => theme.colors.textMuted};
-  border-radius: 50%;
   padding: 4px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -62,46 +64,46 @@ const CloseButton = styled.button`
   }
 `;
 
-const HistoryList = styled.div`
+const ModalBody = styled.div`
   padding: 16px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 `;
 
-const HistoryCard = styled.div`
-  background: ${({ theme }) => theme.colors.surfaceLight};
-  border: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
-  border-radius: 12px;
+const HistoryEntry = styled.div`
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 `;
 
-const HistoryHeader = styled.div`
+const EntryHeader = styled.div`
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   font-size: 12px;
   font-weight: 700;
+  color: ${({ theme }) => theme.colors.textMuted};
 `;
 
-const TypeBadge = styled.span`
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 11px;
-  background: ${({ $isOffSuit }) => ($isOffSuit ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)')};
-  color: ${({ $isOffSuit, theme }) => ($isOffSuit ? theme.colors.danger : theme.colors.success)};
-  border: 1px solid ${({ $isOffSuit, theme }) => ($isOffSuit ? theme.colors.danger : theme.colors.success)};
+const EntryResolution = styled.span`
+  color: ${({ $isOffSuit, theme }) =>
+    $isOffSuit ? theme.colors.danger : theme.colors.success};
+  font-weight: 800;
 `;
 
-const CardsPreviewRow = styled.div`
+const CardsRow = styled.div`
   display: flex;
+  align-items: center;
   gap: 8px;
   overflow-x: auto;
-  padding: 6px 0;
+  padding: 4px 0;
+  scrollbar-width: thin;
 `;
 
 const CardItem = styled.div`
@@ -109,104 +111,86 @@ const CardItem = styled.div`
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  flex-shrink: 0;
 `;
 
-const PlayerTag = styled.span`
-  font-size: 10px;
+const CardPlayerLabel = styled.span`
+  font-size: 9px;
+  font-weight: 700;
   color: ${({ theme }) => theme.colors.textMuted};
   max-width: 48px;
-  overflow: hidden;
   text-overflow: ellipsis;
+  overflow: hidden;
   white-space: nowrap;
-`;
-
-const OutcomeText = styled.div`
-  font-size: 12px;
-  color: ${({ theme }) => theme.colors.textMuted};
-  background: rgba(0, 0, 0, 0.3);
-  padding: 6px 10px;
-  border-radius: 6px;
 `;
 
 const EmptyState = styled.div`
   text-align: center;
+  padding: 30px;
   color: ${({ theme }) => theme.colors.textMuted};
-  padding: 40px 20px;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
 `;
 
 export function ChaalHistoryModal({ isOpen, onClose, history = [], players = [] }) {
-  if (!isOpen) return null;
-
   const playerMap = new Map((players || []).map(p => [p.id, p.username]));
 
   return (
     <AnimatePresence>
-      <Overlay
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-      >
-        <ModalContent onClick={(e) => e.stopPropagation()}>
-          <Header>
-            <Title>
-              <History size={18} /> Chaal History
-            </Title>
-            <CloseButton onClick={onClose}>
-              <X size={18} />
-            </CloseButton>
-          </Header>
+      {isOpen && (
+        <ModalOverlay
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+        >
+          <ModalContent onClick={e => e.stopPropagation()}>
+            <ModalHeader>
+              <ModalTitle>
+                <History size={16} /> Chaal History
+              </ModalTitle>
+              <CloseButton onClick={onClose}>
+                <X size={18} />
+              </CloseButton>
+            </ModalHeader>
 
-          <HistoryList>
-            {history.length === 0 ? (
-              <EmptyState>No Chaals completed yet in this match.</EmptyState>
-            ) : (
-              history.map((item, idx) => {
-                const res = item.resolution;
-                const chaal = item.chaal;
-                const isOffSuit = res.type === 'off-suit';
-                const starterName = playerMap.get(res.starterId) || 'Starter';
-                const nextStarterName = playerMap.get(res.nextStarterId) || 'Next Player';
+            <ModalBody>
+              {history.length === 0 ? (
+                <EmptyState>No Chaals completed yet in this match.</EmptyState>
+              ) : (
+                history.map((item, index) => {
+                  const isOffSuit = item.resolution?.type === 'off-suit';
+                  return (
+                    <HistoryEntry key={item.id || index}>
+                      <EntryHeader>
+                        <span>Chaal #{history.length - index} • {item.timestamp}</span>
+                        <EntryResolution $isOffSuit={isOffSuit}>
+                          {isOffSuit ? 'Off-Suit Penalty' : 'All Followed'}
+                        </EntryResolution>
+                      </EntryHeader>
 
-                return (
-                  <HistoryCard key={item.id || idx}>
-                    <HistoryHeader>
-                      <span>Chaal #{history.length - idx} • {item.timestamp}</span>
-                      <TypeBadge $isOffSuit={isOffSuit}>
-                        {isOffSuit ? 'Off-Suit Penalty' : 'All-Follow Round'}
-                      </TypeBadge>
-                    </HistoryHeader>
-
-                    {chaal && chaal.playedCards && (
-                      <CardsPreviewRow>
-                        {chaal.playedCards.map((play, cIdx) => (
-                          <CardItem key={cIdx}>
-                            <PlayingCard card={play.card} compact={true} />
-                            <PlayerTag>{playerMap.get(play.playerId) || 'P'}</PlayerTag>
-                          </CardItem>
-                        ))}
-                      </CardsPreviewRow>
-                    )}
-
-                    <OutcomeText>
-                      {isOffSuit ? (
-                        <>
-                          ⚠️ <strong>{starterName}</strong> took all cards back. Next turn: <strong>{nextStarterName}</strong>.
-                        </>
-                      ) : (
-                        <>
-                          ✨ All cards permanently discarded. Highest card holder <strong>{nextStarterName}</strong> leads next Chaal.
-                        </>
+                      {item.chaal?.playedCards && (
+                        <CardsRow>
+                          {item.chaal.playedCards.map((play, cIdx) => {
+                            const rawName = playerMap.get(play.playerId) || 'Player';
+                            const playerName = formatPlayerName(rawName, 5);
+                            return (
+                              <CardItem key={`${play.card.id}-${cIdx}`}>
+                                <PlayingCard card={play.card} compact={true} />
+                                <CardPlayerLabel title={rawName}>{playerName}</CardPlayerLabel>
+                              </CardItem>
+                            );
+                          })}
+                        </CardsRow>
                       )}
-                    </OutcomeText>
-                  </HistoryCard>
-                );
-              })
-            )}
-          </HistoryList>
-        </ModalContent>
-      </Overlay>
+                    </HistoryEntry>
+                  );
+                })
+              )}
+            </ModalBody>
+          </ModalContent>
+        </ModalOverlay>
+      )}
     </AnimatePresence>
   );
 }

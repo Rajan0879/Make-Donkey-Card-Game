@@ -9,6 +9,23 @@ export function setupSocketHandlers(io) {
     const user = socket.user;
     logger.info({ userId: user.id, socketId: socket.id }, 'Player connected via Socket.IO');
 
+    // Helper: update socket ID mapping when user connects/reconnects
+    const updatePlayerSocketId = (room) => {
+      if (!room) return;
+      const player = room.players.find(p => p.id === user.id);
+      if (player) {
+        player.socketId = socket.id;
+        player.connected = true;
+      }
+      if (room.gameEngine) {
+        const enginePlayer = room.gameEngine.players.find(p => p.id === user.id);
+        if (enginePlayer) {
+          enginePlayer.socketId = socket.id;
+          enginePlayer.connected = true;
+        }
+      }
+    };
+
     // Helper: broadcast private hands to all players in a room
     const broadcastPrivateGameState = (room) => {
       if (!room || !room.gameEngine) return;
@@ -20,7 +37,7 @@ export function setupSocketHandlers(io) {
       }
     };
 
-    // Helper: start server authoritative 60s turn timer
+    // Helper: start server authoritative turn timer
     const startTurnTimer = (room) => {
       if (room.turnTimer) {
         clearTimeout(room.turnTimer);
@@ -84,6 +101,17 @@ export function setupSocketHandlers(io) {
       });
     };
 
+    // 0. HEARTBEAT / PING (Keeps mobile WebSockets warm)
+    socket.on('heartbeat', (data) => {
+      if (data?.roomCode) {
+        const room = roomManager.getRoom(data.roomCode);
+        if (room) {
+          updatePlayerSocketId(room);
+        }
+      }
+      socket.emit('heartbeat_ack', { timestamp: Date.now() });
+    });
+
     // 1. CREATE ROOM
     socket.on('create_room', (data, callback) => {
       try {
@@ -104,7 +132,7 @@ export function setupSocketHandlers(io) {
       }
     });
 
-    // 2. JOIN ROOM
+    // 2. JOIN ROOM (Handles new joins and mobile reconnects)
     socket.on('join_room', ({ roomCode, username }, callback) => {
       try {
         if (username) {
@@ -119,14 +147,35 @@ export function setupSocketHandlers(io) {
 
         const room = result.room;
         socket.join(room.id);
-        logger.info({ roomId: room.id, userId: user.id, username: user.username }, 'Player joined room');
+        updatePlayerSocketId(room);
+
+        // Cancel any pending disconnect cancellation timer for this user
+        if (room.disconnectTimers.has(user.id)) {
+          clearTimeout(room.disconnectTimers.get(user.id));
+          room.disconnectTimers.delete(user.id);
+        }
+
+        // If game was paused waiting for this user, resume
+        if (room.gameEngine && room.gameEngine.paused && room.disconnectTimers.size === 0) {
+          room.gameEngine.resumeGame();
+          io.to(room.id).emit('game_resumed');
+          startTurnTimer(room);
+        }
+
+        logger.info({ roomId: room.id, userId: user.id, username: user.username, reconnected: result.reconnected }, 'Player joined/reconnected to room');
 
         if (typeof callback === 'function') {
-          callback({ success: true, room });
+          callback({ success: true, room, isGamePlaying: room.status === GAME_STATUS.PLAYING });
         }
 
         io.to(room.id).emit('room_updated', room);
         io.to(room.id).emit('player_joined', { player: user, room });
+
+        // If game is in progress, immediately deliver their current hand
+        if (room.gameEngine) {
+          const privateState = serializeGameStateForPlayer(room.gameEngine, user.id);
+          socket.emit('game_state_updated', privateState);
+        }
       } catch (err) {
         logger.error({ err }, 'Error joining room');
         if (typeof callback === 'function') callback({ success: false, error: err.message });
@@ -140,10 +189,11 @@ export function setupSocketHandlers(io) {
         if (typeof callback === 'function') callback({ success: false, error: 'Room not found or in-game' });
         return;
       }
+      updatePlayerSocketId(room);
 
       io.to(room.id).emit('room_updated', room);
       io.to(room.id).emit('player_ready_updated', { userId: user.id, ready });
-      if (typeof callback === 'function') callback({ success: true });
+      if (typeof callback === 'function') callback({ success: true, room });
     });
 
     // 4. START GAME
@@ -176,6 +226,7 @@ export function setupSocketHandlers(io) {
         if (typeof callback === 'function') callback({ success: false, error: 'Active game not found' });
         return;
       }
+      updatePlayerSocketId(room);
 
       const result = room.gameEngine.playCard(user.id, cardId);
       if (!result.success) {
@@ -184,7 +235,7 @@ export function setupSocketHandlers(io) {
         return;
       }
 
-      // Notify room about card play
+      // Notify entire room channel about the card play so all phones see it immediately
       io.to(room.id).emit('card_played', {
         playerId: user.id,
         playRecord: result.playRecord
@@ -210,10 +261,19 @@ export function setupSocketHandlers(io) {
       if (typeof callback === 'function') callback({ success: true });
     });
 
-    // 6. REQUEST GAME STATE (On Reconnection or Initial Mount)
+    // 6. REQUEST GAME STATE (On Screen Unlock, Reconnection, or Tab Focus)
     socket.on('request_game_state', ({ roomCode }) => {
       const room = roomManager.getRoom(roomCode);
       if (!room) return;
+
+      socket.join(room.id);
+      updatePlayerSocketId(room);
+
+      // Cancel disconnect grace if player was marked away
+      if (room.disconnectTimers.has(user.id)) {
+        clearTimeout(room.disconnectTimers.get(user.id));
+        room.disconnectTimers.delete(user.id);
+      }
 
       if (room.gameEngine) {
         const privateState = serializeGameStateForPlayer(room.gameEngine, user.id);
@@ -233,14 +293,12 @@ export function setupSocketHandlers(io) {
 
       if (room.status === GAME_STATUS.PLAYING) {
         if (isHost) {
-          // Section 9.3: Host transfer
           roomManager.removePlayer(room.id, user.id);
           socket.leave(room.id);
           io.to(room.id).emit('host_changed', { newHostId: room.hostId });
           io.to(room.id).emit('player_left', { userId: user.id });
           broadcastPrivateGameState(room);
         } else {
-          // Regular player intentional leave cancels the game
           room.gameEngine.cancelGame();
           roomManager.clearRoomTimers(room);
           room.status = GAME_STATUS.CANCELLED;
@@ -250,7 +308,6 @@ export function setupSocketHandlers(io) {
           io.to(room.id).emit('room_updated', room);
         }
       } else {
-        // Lobby leave
         const updated = roomManager.removePlayer(room.id, user.id);
         socket.leave(room.id);
         if (updated) {
@@ -276,7 +333,7 @@ export function setupSocketHandlers(io) {
       });
     });
 
-    // 9. DISCONNECT (Accidental / Socket drop)
+    // 9. DISCONNECT (Mobile screen lock or temporary drop)
     socket.on('disconnect', () => {
       const room = roomManager.getRoomByUser(user.id);
       if (!room) return;
@@ -284,13 +341,12 @@ export function setupSocketHandlers(io) {
       const player = room.players.find(p => p.id === user.id);
       if (player) {
         player.connected = false;
-        player.ready = false;
+        // CRITICAL FIX: DO NOT wipe player.ready on momentary disconnect!
       }
 
       logger.info({ userId: user.id, roomId: room.id }, 'Player disconnected');
 
       if (room.status === GAME_STATUS.PLAYING && room.gameEngine) {
-        // Section 9.2: Pause game, freeze timer, 60s grace period
         room.gameEngine.pauseGame();
         if (room.turnTimer) {
           clearTimeout(room.turnTimer);

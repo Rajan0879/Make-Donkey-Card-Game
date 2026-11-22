@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlayingCard } from '../cards/PlayingCard.jsx';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { formatPlayerName } from '../../utils/nameUtils.js';
 
 const ChaalBox = styled.div`
   display: flex;
@@ -58,7 +59,7 @@ const PlayerTag = styled.span`
   background: rgba(0, 0, 0, 0.55);
   padding: 1px 6px;
   border-radius: 4px;
-  max-width: 60px;
+  max-width: 50px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -90,6 +91,12 @@ export function ChaalArea({ chaal, players, recentCompletedChaal, lastResolution
   const displayChaal = isPreviewingCompleted ? recentCompletedChaal : chaal;
   const isOffSuit = lastResolution?.type === 'off-suit';
 
+  // Get penalty player's 5-char name
+  const rawPenaltyName = lastResolution?.penaltyPlayerId
+    ? playerMap.get(lastResolution.penaltyPlayerId) || 'Player'
+    : 'Highest Player';
+  const penaltyPlayerName = formatPlayerName(rawPenaltyName, 5);
+
   return (
     <ChaalBox>
       <BannerSlot>
@@ -105,7 +112,7 @@ export function ChaalArea({ chaal, players, recentCompletedChaal, lastResolution
               {isOffSuit ? (
                 <>
                   <AlertTriangle size={15} />
-                  <span>Off-Suit Penalty! Starter takes all cards</span>
+                  <span>Off-Suit Penalty! {penaltyPlayerName} took all cards</span>
                 </>
               ) : (
                 <>
@@ -127,7 +134,8 @@ export function ChaalArea({ chaal, players, recentCompletedChaal, lastResolution
       <PlayedCardsRow>
         <AnimatePresence>
           {displayChaal.playedCards.map((play, index) => {
-            const playerName = playerMap.get(play.playerId) || 'Player';
+            const rawName = playerMap.get(play.playerId) || 'Player';
+            const shortName = formatPlayerName(rawName, 5);
             return (
               <CardSlot
                 key={`${play.card.id}-${index}`}
@@ -137,7 +145,7 @@ export function ChaalArea({ chaal, players, recentCompletedChaal, lastResolution
                 transition={{ type: 'spring', stiffness: 350, damping: 25 }}
               >
                 <PlayingCard card={play.card} compact={false} />
-                <PlayerTag>{playerName}</PlayerTag>
+                <PlayerTag title={rawName}>{shortName}</PlayerTag>
               </CardSlot>
             );
           })}

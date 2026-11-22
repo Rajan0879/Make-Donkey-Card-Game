@@ -18,7 +18,7 @@ export function createChaal(starterId) {
 }
 
 /**
- * Resolves a completed Chaal according to the core Make Donkey rules.
+ * Resolves a completed Chaal according to Make Donkey rules.
  * 
  * Scenario A (All Follow):
  *   - Cards permanently discarded.
@@ -26,9 +26,9 @@ export function createChaal(starterId) {
  *   - Highest-value card of starting suit by an active player becomes next starter.
  * 
  * Scenario B (Off-Suit or non-starter timeout):
- *   - Original Chaal starter takes ALL played cards back into their hand.
- *   - Check hand counts for winners (non-starters could have reached 0).
- *   - Original Chaal starter starts the next Chaal.
+ *   - The player who threw the HIGHEST card of the starting suit takes ALL played cards.
+ *   - That player starts the next Chaal.
+ *   - Check hand counts for winners (players who emptied hands become winners).
  * 
  * @param {Object} params
  * @param {Object} params.chaal Current Chaal state
@@ -45,21 +45,31 @@ export function resolveChaal({ chaal, hands, players }) {
 
   if (endedByOffSuit) {
     // SCENARIO B: Off-suit occurred (or non-starter timed out)
-    // All cards played so far return to the ORIGINAL starter's hand!
-    returnedCards = playedCards.map(p => p.card);
-    hands[starterId] = [...(hands[starterId] || []), ...returnedCards];
+    // Find the player who played the highest card of the starting suit in this bout
+    const matchingPlays = playedCards
+      .filter(p => p.card.suit === startingSuit)
+      .sort((a, b) => b.card.value - a.card.value);
 
-    // Check winners post-resolution
+    // The player who threw the highest card of the starting suit is penalized.
+    // Fallback to starterId only if no matching card found.
+    const penaltyPlayerId = matchingPlays.length > 0 ? matchingPlays[0].playerId : starterId;
+
+    // All played cards return to the penalty player's hand!
+    returnedCards = playedCards.map(p => p.card);
+    hands[penaltyPlayerId] = [...(hands[penaltyPlayerId] || []), ...returnedCards];
+
+    // Check winners post-resolution (non-penalty players may have emptied their hands)
     const newWinners = checkWinners(players, hands);
 
-    // Original starter starts again
-    nextStarterId = starterId;
+    // Penalty player starts the next Chaal
+    nextStarterId = penaltyPlayerId;
 
     const donkeyCheck = checkDonkey(players);
 
     return {
       type: 'off-suit',
       starterId,
+      penaltyPlayerId,
       returnedCards,
       removedCards: [],
       nextStarterId,
@@ -81,6 +91,7 @@ export function resolveChaal({ chaal, hands, players }) {
       return {
         type: 'all-follow',
         starterId,
+        penaltyPlayerId: null,
         returnedCards: [],
         removedCards,
         nextStarterId: null,
@@ -96,6 +107,7 @@ export function resolveChaal({ chaal, hands, players }) {
     return {
       type: 'all-follow',
       starterId,
+      penaltyPlayerId: null,
       returnedCards: [],
       removedCards,
       nextStarterId,

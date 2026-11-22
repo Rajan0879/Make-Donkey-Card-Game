@@ -61,15 +61,30 @@ export class RoomManager {
       return { success: false, error: 'Room not found.' };
     }
 
-    if (room.status !== GAME_STATUS.WAITING) {
-      return { success: false, error: 'Game has already started in this room.' };
-    }
-
+    // Reconnection to active game or lobby
     const existingPlayer = room.players.find(p => p.id === user.id);
     if (existingPlayer) {
       existingPlayer.connected = true;
       existingPlayer.socketId = user.socketId;
+      if (user.username) {
+        existingPlayer.username = user.username;
+      }
+      this.userToRoom.set(user.id, room.id);
+
+      // If rejoining an active game, update game engine representation
+      if (room.gameEngine) {
+        const enginePlayer = room.gameEngine.players.find(p => p.id === user.id);
+        if (enginePlayer) {
+          enginePlayer.connected = true;
+          enginePlayer.socketId = user.socketId;
+        }
+      }
+
       return { success: true, room, reconnected: true };
+    }
+
+    if (room.status !== GAME_STATUS.WAITING) {
+      return { success: false, error: 'Game has already started in this room.' };
     }
 
     if (room.players.length >= room.maxPlayers) {
@@ -100,6 +115,7 @@ export class RoomManager {
     if (!player) return null;
 
     player.ready = Boolean(ready);
+    player.connected = true; // marking ready confirms player is connected
     return room;
   }
 
@@ -109,15 +125,14 @@ export class RoomManager {
     if (room.hostId !== hostUserId) return { canStart: false, error: 'Only the room host can start the game.' };
     if (room.status !== GAME_STATUS.WAITING) return { canStart: false, error: 'Game is already active.' };
     if (room.players.length < room.minPlayers) {
-      return { canStart: false, error: `Minimum ${room.minPlayers} players required to play Make Donkey.` };
+      return { canStart: false, error: `Minimum ${room.minPlayers} players required to play Make Donkey (currently ${room.players.length}).` };
     }
-    const hasDisconnected = room.players.some(p => !p.connected);
-    if (hasDisconnected) {
-      return { canStart: false, error: 'Cannot start while some players are disconnected.' };
-    }
-    const allReady = room.players.every(p => p.ready);
-    if (!allReady) {
-      return { canStart: false, error: 'All players must mark themselves Ready before starting.' };
+
+    // Identify which players are not ready or disconnected
+    const unreadyPlayers = room.players.filter(p => !p.ready);
+    if (unreadyPlayers.length > 0) {
+      const names = unreadyPlayers.map(p => p.username).join(', ');
+      return { canStart: false, error: `Waiting for: ${names} to mark Ready.` };
     }
 
     return { canStart: true };
@@ -128,6 +143,8 @@ export class RoomManager {
     if (!room) return null;
 
     room.status = GAME_STATUS.PLAYING;
+    // Ensure all players are marked connected upon game start
+    room.players.forEach(p => { p.connected = true; });
     room.gameEngine = new GameEngine(room.id, room.players);
     return room;
   }

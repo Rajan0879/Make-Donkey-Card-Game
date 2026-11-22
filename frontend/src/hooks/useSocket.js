@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { socketService } from '../services/socket.js';
 import { useAuthStore } from '../store/authStore.js';
 import { useRoomStore } from '../store/roomStore.js';
@@ -7,8 +7,9 @@ import { soundManager } from '../services/sound/soundManager.js';
 
 export function useSocket() {
   const { user, token } = useAuthStore();
-  const { setRoom } = useRoomStore();
+  const { room, setRoom } = useRoomStore();
   const {
+    gameState,
     setGameState,
     setLastPlayedCard,
     setLastResolution,
@@ -17,57 +18,102 @@ export function useSocket() {
     resetGame
   } = useGameStore();
 
+  const roomRef = useRef(room);
+  roomRef.current = room;
+
+  const gameStateRef = useRef(gameState);
+  gameStateRef.current = gameState;
+
   useEffect(() => {
     const socket = socketService.connect(user, token);
 
-    if (socketService.hasListeners) {
-      return;
+    // Function to re-sync state on tab focus or reconnect
+    const requestSync = () => {
+      const currentRoomCode = roomRef.current?.code || roomRef.current?.id;
+      if (currentRoomCode && socket.connected) {
+        socket.emit('request_game_state', { roomCode: currentRoomCode });
+      }
+    };
+
+    if (!socketService.hasListeners) {
+      socketService.hasListeners = true;
+
+      socket.on('connect', () => {
+        // Automatically rejoin room if user was already in a room
+        const storedCode = roomRef.current?.code || roomRef.current?.id;
+        if (storedCode && user) {
+          socket.emit('join_room', { roomCode: storedCode, username: user.username }, (res) => {
+            if (res && res.success) {
+              setRoom(res.room);
+              requestSync();
+            }
+          });
+        }
+      });
+
+      socket.on('room_created', (r) => setRoom(r));
+      socket.on('room_updated', (r) => setRoom(r));
+
+      socket.on('game_started', () => {
+        soundManager.playButtonClick();
+      });
+
+      socket.on('game_state_updated', (state) => {
+        setGameState(state);
+      });
+
+      socket.on('card_played', (data) => {
+        setLastPlayedCard(data.playRecord);
+        soundManager.playCardPlay();
+      });
+
+      socket.on('chaal_resolved', (data) => {
+        setLastResolution(data.resolution, data.completedChaal);
+        soundManager.playChaalResolved();
+      });
+
+      socket.on('turn_timed_out', () => {
+        soundManager.playTurnWarning();
+      });
+
+      socket.on('game_paused', (data) => {
+        setGamePaused(true, `A player disconnected. Paused for ${data.graceSeconds}s`);
+      });
+
+      socket.on('game_resumed', () => {
+        setGamePaused(false, null);
+      });
+
+      socket.on('game_cancelled', (data) => {
+        alert(`Game cancelled: ${data.reason}`);
+        resetGame();
+      });
+
+      socket.on('game_finished', (data) => {
+        setDonkeyAnnouncement(data);
+        soundManager.playDonkeyDeclared();
+      });
     }
-    socketService.hasListeners = true;
 
-    socket.on('room_created', (room) => setRoom(room));
-    socket.on('room_updated', (room) => setRoom(room));
+    // Auto-sync on screen wake up or tab visibility change
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        requestSync();
+      }
+    };
 
-    socket.on('game_started', () => {
-      soundManager.playButtonClick();
-    });
+    const handleWindowFocus = () => {
+      requestSync();
+    };
 
-    socket.on('game_state_updated', (state) => {
-      setGameState(state);
-    });
-
-    socket.on('card_played', (data) => {
-      setLastPlayedCard(data.playRecord);
-      soundManager.playCardPlay();
-    });
-
-    socket.on('chaal_resolved', (data) => {
-      setLastResolution(data.resolution, data.completedChaal);
-      soundManager.playChaalResolved();
-    });
-
-    socket.on('turn_timed_out', () => {
-      soundManager.playTurnWarning();
-    });
-
-    socket.on('game_paused', (data) => {
-      setGamePaused(true, `A player disconnected. Paused for ${data.graceSeconds}s`);
-    });
-
-    socket.on('game_cancelled', (data) => {
-      alert(`Game cancelled: ${data.reason}`);
-      resetGame();
-    });
-
-    socket.on('game_finished', (data) => {
-      setDonkeyAnnouncement(data);
-      soundManager.playDonkeyDeclared();
-    });
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWindowFocus);
 
     return () => {
-      // Keep socket connected across routes
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWindowFocus);
     };
-  }, [user, token]);
+  }, [user, token, setRoom, setGameState, setLastPlayedCard, setLastResolution, setDonkeyAnnouncement, setGamePaused, resetGame]);
 
   return socketService.getSocket();
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { PlayerSeat } from './PlayerSeat.jsx';
 import { ChaalArea } from './ChaalArea.jsx';
@@ -11,6 +11,7 @@ import { SoundToggle } from '../common/SoundToggle.jsx';
 import { useAuthStore } from '../../store/authStore.js';
 import { useGameStore } from '../../store/gameStore.js';
 import { useSocket } from '../../hooks/useSocket.js';
+import { soundManager } from '../../services/sound/soundManager.js';
 import { LogOut, History, RotateCw } from 'lucide-react';
 
 /* Fixed viewport container with exact screen lock and comfortable bottom spacing */
@@ -49,13 +50,12 @@ const TopBar = styled.div`
   z-index: 25;
   background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 4px 8px;
   border-radius: 12px;
-  padding: 5px 8px;
   gap: 6px;
-  flex-wrap: wrap;
 
-  @media (max-width: 480px) {
+  @media (max-width: 500px) {
     padding: 4px 6px;
     gap: 4px;
   }
@@ -64,8 +64,12 @@ const TopBar = styled.div`
 const NavLeft = styled.div`
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   flex-shrink: 0;
+
+  @media (max-width: 500px) {
+    gap: 4px;
+  }
 `;
 
 const RoomBadge = styled.span`
@@ -118,25 +122,24 @@ const OpponentsRow = styled.div`
   justify-content: center;
   align-items: center;
   width: 100%;
-  max-width: 650px;
-  margin: 14px auto 6px;
+  gap: 8px;
+  margin-top: 14px;
+  margin-bottom: 2px;
+  position: relative;
   z-index: 10;
-  gap: 14px;
   overflow-x: auto;
-  padding: 6px 8px;
-
-  @media (max-width: 600px) {
-    margin: 10px auto 4px;
-    gap: 10px;
-    padding: 4px 6px;
-  }
-
-  /* Hide scrollbar for slick look */
+  overflow-y: hidden;
+  padding: 2px 4px;
+  scrollbar-width: none;
   &::-webkit-scrollbar {
     display: none;
   }
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+
+  @media (max-width: 600px) {
+    gap: 6px;
+    margin-top: 10px;
+    margin-bottom: 2px;
+  }
 `;
 
 const CenterArena = styled.div`
@@ -152,6 +155,7 @@ const CenterArena = styled.div`
 export function GameTable({ onLeave }) {
   const socket = useSocket();
   const { user } = useAuthStore();
+  const [isSyncing, setIsSyncing] = useState(false);
   const {
     gameState,
     selectedCardId,
@@ -197,6 +201,16 @@ export function GameTable({ onLeave }) {
     });
   };
 
+  const handleManualSync = () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    soundManager.playButtonClick();
+    socket.emit('request_game_state', { roomCode: roomId });
+    setTimeout(() => {
+      setIsSyncing(false);
+    }, 600);
+  };
+
   const handleLeave = () => {
     socket.emit('leave_room', { roomCode: roomId });
     resetGame();
@@ -224,6 +238,12 @@ export function GameTable({ onLeave }) {
         <GameTimer deadline={turnDeadline} isMyTurn={isMyTurn} />
 
         <NavRight>
+          {/* In-game quick sync / refresh button (zero page reload, seamless socket state fetch) */}
+          <IconButton onClick={handleManualSync} title="Sync cards / Refresh Chaal">
+            <RotateCw size={13} className={isSyncing ? 'animate-spin' : ''} />
+            <span style={{ display: 'none', '@media (min-width: 540px)': { display: 'inline' } }}>Sync</span>
+          </IconButton>
+
           <SoundToggle />
           <IconButton onClick={() => setIsHistoryOpen(true)} title="View Chaal History">
             <History size={13} />
@@ -235,7 +255,7 @@ export function GameTable({ onLeave }) {
         </NavRight>
       </TopBar>
 
-      {/* Opponents Row with Distinct Avatars */}
+      {/* Opponents Row with Distinct Avatars and Online Status */}
       <OpponentsRow>
         {opponents.map(opp => (
           <PlayerSeat
@@ -248,7 +268,7 @@ export function GameTable({ onLeave }) {
         ))}
       </OpponentsRow>
 
-      {/* Center Table Area with 4-second Completed Chaal Preview */}
+      {/* Center Table Area with Completed Chaal Preview */}
       <CenterArena>
         <ChaalArea
           chaal={chaal}

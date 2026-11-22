@@ -1,7 +1,8 @@
 import React from 'react';
 import styled, { css } from 'styled-components';
-import { Crown, Trophy } from 'lucide-react';
+import { Crown, Trophy, WifiOff } from 'lucide-react';
 import { getPlayerAvatar } from '../../utils/avatarUtils.js';
+import { formatPlayerName } from '../../utils/nameUtils.js';
 
 const SeatContainer = styled.div`
   display: flex;
@@ -10,8 +11,8 @@ const SeatContainer = styled.div`
   position: relative;
   gap: 3px;
   user-select: none;
-  min-width: 60px;
-  max-width: 80px;
+  min-width: 54px;
+  max-width: 72px;
   flex-shrink: 0;
 `;
 
@@ -20,8 +21,8 @@ const AvatarRing = styled.div`
   height: 44px;
   border-radius: 50%;
   background: ${({ $bg, theme }) => $bg || theme.colors.surface};
-  border: 2px solid ${({ theme, $isTurn, $isWinner }) =>
-    $isWinner ? theme.colors.success : $isTurn ? theme.colors.gold : 'rgba(255, 255, 255, 0.2)'};
+  border: 2px solid ${({ theme, $isTurn, $isWinner, $isDisconnected }) =>
+    $isDisconnected ? theme.colors.danger : $isWinner ? theme.colors.success : $isTurn ? theme.colors.gold : 'rgba(255, 255, 255, 0.2)'};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -35,8 +36,8 @@ const AvatarRing = styled.div`
   ${({ $isDisconnected }) =>
     $isDisconnected &&
     css`
-      opacity: 0.45;
-      filter: grayscale(100%);
+      opacity: 0.55;
+      filter: grayscale(80%);
     `}
 
   @media (max-width: 600px) {
@@ -44,6 +45,21 @@ const AvatarRing = styled.div`
     height: 38px;
     font-size: 19px;
   }
+`;
+
+const DisconnectBadge = styled.div`
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  background: #ef4444;
+  color: #fff;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
 `;
 
 const HostBadge = styled.div`
@@ -79,8 +95,9 @@ const WinnerBadge = styled.div`
 const PlayerName = styled.div`
   font-size: 11px;
   font-weight: 700;
-  color: ${({ theme, $isTurn }) => ($isTurn ? theme.colors.goldLight : theme.colors.text)};
-  max-width: 72px;
+  color: ${({ theme, $isTurn, $isDisconnected }) =>
+    $isDisconnected ? '#ef4444' : $isTurn ? theme.colors.goldLight : theme.colors.text};
+  max-width: 65px;
   text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;
@@ -104,11 +121,12 @@ const CardCountPill = styled.div`
 
 export function PlayerSeat({ player, isTurn, isStarter, seatIndex = 0 }) {
   const isWinner = player.status === 'winner';
-  const isDisconnected = !player.connected;
+  const isDisconnected = player.connected === false;
   const avatarInfo = getPlayerAvatar(seatIndex);
+  const displayName = formatPlayerName(player.username, 5);
 
   return (
-    <SeatContainer>
+    <SeatContainer title={player.username}>
       <AvatarRing
         $bg={avatarInfo.bg}
         $isTurn={isTurn}
@@ -118,6 +136,12 @@ export function PlayerSeat({ player, isTurn, isStarter, seatIndex = 0 }) {
         <span role="img" aria-label={avatarInfo.name}>
           {avatarInfo.emoji}
         </span>
+
+        {isDisconnected && (
+          <DisconnectBadge title="Player is reconnecting...">
+            <WifiOff size={10} />
+          </DisconnectBadge>
+        )}
 
         {player.isHost && (
           <HostBadge title="Room Host">
@@ -132,8 +156,8 @@ export function PlayerSeat({ player, isTurn, isStarter, seatIndex = 0 }) {
         )}
       </AvatarRing>
 
-      <PlayerName $isTurn={isTurn}>
-        {player.username} {isStarter && '⭐'}
+      <PlayerName $isTurn={isTurn} $isDisconnected={isDisconnected}>
+        {displayName} {isStarter && '⭐'}
       </PlayerName>
 
       <CardCountPill>
