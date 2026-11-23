@@ -7,7 +7,7 @@ import { soundManager } from '../services/sound/soundManager.js';
 
 export function useSocket() {
   const { user, token } = useAuthStore();
-  const { room, setRoom } = useRoomStore();
+  const { room, setRoom, setError } = useRoomStore();
   const {
     gameState,
     setGameState,
@@ -106,12 +106,14 @@ export function useSocket() {
       });
 
       socket.on('game_cancelled', (data) => {
-        alert(`Game cancelled: ${data.reason}`);
+        soundManager.playTurnWarning();
+        if (setError) setError(`Game cancelled: ${data.reason}`);
         resetGame();
       });
 
       socket.on('player_kicked', (data) => {
-        alert(data.reason || 'You were removed from the room by the host.');
+        soundManager.playTurnWarning();
+        if (setError) setError(data.reason || 'You were removed from the room by the host.');
         setRoom(null);
         resetGame();
         window.history.pushState(null, '', '/');

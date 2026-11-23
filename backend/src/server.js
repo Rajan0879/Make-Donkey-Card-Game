@@ -63,6 +63,14 @@ const io = new SocketIOServer(server, {
 io.use(socketAuthMiddleware);
 setupSocketHandlers(io);
 
+// Global crash shields — keep the server alive on Render
+process.on('uncaughtException', (err) => {
+  logger.error({ err }, 'UNCAUGHT EXCEPTION — server staying alive');
+});
+process.on('unhandledRejection', (reason) => {
+  logger.error({ reason }, 'UNHANDLED REJECTION — server staying alive');
+});
+
 // Server startup
 server.listen(config.port, () => {
   logger.info(`Make Donkey authoritative backend listening on port ${config.port}`);

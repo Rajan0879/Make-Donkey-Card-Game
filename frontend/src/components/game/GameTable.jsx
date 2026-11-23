@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { PlayerSeat } from './PlayerSeat.jsx';
 import { ChaalArea } from './ChaalArea.jsx';
@@ -12,7 +12,7 @@ import { useAuthStore } from '../../store/authStore.js';
 import { useGameStore } from '../../store/gameStore.js';
 import { useSocket } from '../../hooks/useSocket.js';
 import { soundManager } from '../../services/sound/soundManager.js';
-import { LogOut, History, RotateCw } from 'lucide-react';
+import { LogOut, History, RotateCw, Pause } from 'lucide-react';
 
 /* Fixed viewport container with exact screen lock and comfortable bottom spacing */
 const TableContainer = styled.div`
@@ -161,12 +161,52 @@ const CenterArena = styled.div`
   width: 100%;
 `;
 
+const PauseOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 100;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  padding: 20px;
+`;
+
+const PauseIcon = styled.div`
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(229, 184, 66, 0.2);
+  border: 2px solid rgba(229, 184, 66, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulse 2s infinite ease-in-out;
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.9; }
+    50% { transform: scale(1.08); opacity: 1; }
+  }
+`;
+
 export function GameTable({ onLeave }) {
   const socket = useSocket();
   const { user } = useAuthStore();
   const [isSyncing, setIsSyncing] = useState(false);
   const [playError, setPlayError] = useState(null);
   const [isPlayingCard, setIsPlayingCard] = useState(false);
+  const playingRef = useRef(false); // ref-based guard against double submission
+  const playTimeoutRef = useRef(null);
   const {
     gameState,
     selectedCardId,
@@ -177,8 +217,27 @@ export function GameTable({ onLeave }) {
     isHistoryOpen,
     setIsHistoryOpen,
     donkeyAnnouncement,
+    isPaused,
+    pauseReason,
     resetGame
   } = useGameStore();
+
+  // Auto-unlock "Playing..." button if socket disconnects
+  useEffect(() => {
+    if (!socket) return;
+    const handleDisconnect = () => {
+      if (playingRef.current) {
+        playingRef.current = false;
+        setIsPlayingCard(false);
+        setPlayError('Connection lost. Try again.');
+      }
+    };
+    socket.on('disconnect', handleDisconnect);
+    return () => {
+      socket.off('disconnect', handleDisconnect);
+      if (playTimeoutRef.current) clearTimeout(playTimeoutRef.current);
+    };
+  }, [socket]);
 
   if (!gameState) {
     return <div style={{ color: '#fff', padding: 40 }}>Loading game table...</div>;
@@ -197,7 +256,7 @@ export function GameTable({ onLeave }) {
 
   const myPlayerId = gameState.myPlayerId || user.id;
   const isMyTurn = currentTurnId === myPlayerId;
-  const isStarter = currentTurnId === chaal.starterId;
+  const isStarter = currentTurnId === chaal.starterId && isMyTurn;
   const opponents = players.filter(p => p.id !== myPlayerId);
   const me = players.find(p => p.id === myPlayerId);
 
@@ -206,11 +265,27 @@ export function GameTable({ onLeave }) {
   players.forEach((p, idx) => seatIndexMap.set(p.id, idx));
 
   const handlePlayCard = (cardId) => {
-    if (isPlayingCard) return;
+    if (playingRef.current || isPlayingCard) return;
+    playingRef.current = true;
     setIsPlayingCard(true);
     setPlayError(null);
 
+    // 5-second safety timeout: if the server doesn't respond, unlock the button
+    if (playTimeoutRef.current) clearTimeout(playTimeoutRef.current);
+    playTimeoutRef.current = setTimeout(() => {
+      if (playingRef.current) {
+        playingRef.current = false;
+        setIsPlayingCard(false);
+        setPlayError('Server timed out. Tap again to retry.');
+        soundManager.playTurnWarning();
+        // Re-sync game state from server
+        socket.emit('request_game_state', { roomCode: roomId });
+      }
+    }, 5000);
+
     socket.emit('play_card', { roomCode: roomId, cardId, userId: myPlayerId }, (res) => {
+      if (playTimeoutRef.current) clearTimeout(playTimeoutRef.current);
+      playingRef.current = false;
       setIsPlayingCard(false);
       if (res && res.success) {
         setSelectedCardId(null);
@@ -329,6 +404,19 @@ export function GameTable({ onLeave }) {
           onPlayAgain={handlePlayAgain}
           onLeave={handleLeave}
         />
+      )}
+
+      {/* Game Paused Overlay */}
+      {isPaused && (
+        <PauseOverlay>
+          <PauseIcon>
+            <Pause size={28} color="#e5b842" />
+          </PauseIcon>
+          <div>{pauseReason || 'Game is paused — waiting for player to reconnect...'}</div>
+          <div style={{ fontSize: 13, color: '#9ca3af', fontWeight: 500 }}>
+            The match will resume automatically once the player returns.
+          </div>
+        </PauseOverlay>
       )}
     </TableContainer>
   );

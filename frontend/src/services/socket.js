@@ -59,7 +59,10 @@ class SocketService {
         let roomCode = null;
         try {
           const raw = localStorage.getItem('donkey_room');
-          if (raw) roomCode = JSON.parse(raw)?.code;
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed.code === 'string') roomCode = parsed.code;
+          }
         } catch (e) {}
         this.socket.emit('heartbeat', { roomCode, timestamp: Date.now() });
       }

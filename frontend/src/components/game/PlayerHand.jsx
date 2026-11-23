@@ -183,6 +183,8 @@ export function PlayerHand({
   const hasStartingSuit = startingSuit ? hand.some(c => c.suit === startingSuit) : false;
 
   const handleCardClick = (card, disabled, disabledReason) => {
+    if (isPlaying) return; // Prevent double-triggering while a play action is in flight
+
     if (!isMyTurn) {
       showHint("Wait for your turn to play!");
       return;

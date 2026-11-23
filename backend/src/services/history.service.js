@@ -1,3 +1,4 @@
+import admin from 'firebase-admin';
 import { firestoreDb } from '../config/firebase.js';
 import { logger } from '../utils/logger.js';
 
@@ -30,10 +31,10 @@ export async function saveCompletedMatch({ roomId, players, donkeyId }) {
         const isDonkey = p.id === donkeyId;
         batch.set(userRef, {
           username: p.username,
-          totalGames: firestoreDb.FieldValue.increment(1),
-          totalWins: firestoreDb.FieldValue.increment(isDonkey ? 0 : 1),
-          donkeyCount: firestoreDb.FieldValue.increment(isDonkey ? 1 : 0),
-          updatedAt: firestoreDb.FieldValue.serverTimestamp()
+          totalGames: admin.firestore.FieldValue.increment(1),
+          totalWins: admin.firestore.FieldValue.increment(isDonkey ? 0 : 1),
+          donkeyCount: admin.firestore.FieldValue.increment(isDonkey ? 1 : 0),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
       }
       await batch.commit();

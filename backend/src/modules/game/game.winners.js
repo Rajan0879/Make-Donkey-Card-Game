@@ -54,7 +54,7 @@ export function findNextStarterAllFollow(playedCards, startingSuit, players) {
 
   // Fallback: If all who played cards in this Chaal won, pick next active player in player list
   const nextActive = players.find(p => p.status === PLAYER_STATUS.ACTIVE);
-  return nextActive ? nextActive.id : null;
+  return nextActive ? nextActive.id : (playedCards[0]?.playerId || null);
 }
 
 /**
@@ -67,12 +67,14 @@ export function findNextStarterAllFollow(playedCards, startingSuit, players) {
 export function checkDonkey(players) {
   const activePlayers = players.filter(p => p.status === PLAYER_STATUS.ACTIVE);
 
-  if (activePlayers.length === 1) {
-    const donkey = activePlayers[0];
-    donkey.status = PLAYER_STATUS.DONKEY;
+  if (activePlayers.length <= 1) {
+    const donkey = activePlayers[0] || null;
+    if (donkey) {
+      donkey.status = PLAYER_STATUS.DONKEY;
+    }
     return {
       isGameOver: true,
-      donkeyId: donkey.id
+      donkeyId: donkey ? donkey.id : null
     };
   }
 

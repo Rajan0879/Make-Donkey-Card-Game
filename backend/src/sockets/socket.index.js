@@ -62,54 +62,83 @@ export function setupSocketHandlers(io) {
       const durationMs = Math.max(500, room.gameEngine.turnDeadline - Date.now());
 
       room.turnTimer = setTimeout(() => {
-        logger.info({ roomId: room.id, turnPlayerId: room.gameEngine.currentTurnId }, 'Turn timed out on server');
-        const timeoutResult = room.gameEngine.processTurnTimeout();
+        try {
+          if (!room.gameEngine || room.gameEngine.status !== GAME_STATUS.PLAYING || room.gameEngine.paused) {
+            return;
+          }
 
-        io.to(room.id).emit('turn_timed_out', timeoutResult);
+          logger.info({ roomId: room.id, turnPlayerId: room.gameEngine.currentTurnId }, 'Turn timed out on server');
+          const timeoutResult = room.gameEngine.processTurnTimeout();
 
-        if (timeoutResult.resolution) {
-          io.to(room.id).emit('chaal_resolved', {
-            resolution: timeoutResult.resolution,
-            currentStarterId: room.gameEngine.currentStarterId,
-            completedChaal: { ...room.gameEngine.chaal }
-          });
-        }
+          io.to(room.id).emit('turn_timed_out', timeoutResult);
 
-        if (room.gameEngine.status === GAME_STATUS.FINISHED) {
-          handleGameOver(room);
-        } else {
-          broadcastPrivateGameState(room);
-          startTurnTimer(room);
+          if (timeoutResult.resolution) {
+            io.to(room.id).emit('chaal_resolved', {
+              resolution: timeoutResult.resolution,
+              currentStarterId: room.gameEngine.currentStarterId,
+              completedChaal: { ...room.gameEngine.chaal }
+            });
+          }
+
+          if (room.gameEngine.status === GAME_STATUS.FINISHED) {
+            handleGameOver(room);
+          } else {
+            broadcastPrivateGameState(room);
+            startTurnTimer(room);
+          }
+        } catch (err) {
+          logger.error({ err, roomId: room.id }, 'Error in turn timer callback — recovering');
+          try { broadcastPrivateGameState(room); } catch (e) { /* swallow */ }
         }
       }, durationMs);
     };
 
     const handleGameOver = async (room, fallbackDonkeyPlayer = null) => {
-      room.status = GAME_STATUS.FINISHED;
-      if (room.turnTimer) {
-        clearTimeout(room.turnTimer);
-        room.turnTimer = null;
+      try {
+        room.status = GAME_STATUS.FINISHED;
+        if (room.turnTimer) {
+          clearTimeout(room.turnTimer);
+          room.turnTimer = null;
+        }
+
+        const donkeyId = room.gameEngine ? room.gameEngine.donkeyId : null;
+        const donkeyPlayer = (room.players || []).find(p => p.id === donkeyId) || fallbackDonkeyPlayer;
+
+        logger.info({ roomId: room.id, donkeyId }, 'Game finished! Donkey declared.');
+
+        io.to(room.id).emit('game_finished', {
+          donkeyId,
+          donkeyPlayer,
+          winners: room.gameEngine ? room.gameEngine.winners : []
+        });
+
+        broadcastPrivateGameState(room);
+
+        // Save match to history (guarded)
+        try {
+          await saveCompletedMatch({
+            roomId: room.id,
+            players: room.players || [],
+            donkeyId
+          });
+        } catch (saveErr) {
+          logger.error({ saveErr }, 'Failed to save match history — game result still delivered');
+        }
+
+        // Schedule room cleanup after 5 minutes to free memory
+        setTimeout(() => {
+          try {
+            const existingRoom = roomManager.getRoom(room.id);
+            if (existingRoom && existingRoom.status === GAME_STATUS.FINISHED) {
+              roomManager.clearRoomTimers(existingRoom);
+              existingRoom.gameEngine = null;
+              logger.info({ roomId: room.id }, 'Cleaned up finished game engine to free memory');
+            }
+          } catch (e) { /* swallow */ }
+        }, 5 * 60 * 1000);
+      } catch (err) {
+        logger.error({ err, roomId: room.id }, 'Error in handleGameOver — recovering');
       }
-
-      const donkeyId = room.gameEngine.donkeyId;
-      const donkeyPlayer = room.players.find(p => p.id === donkeyId) || fallbackDonkeyPlayer;
-
-      logger.info({ roomId: room.id, donkeyId }, 'Game finished! Donkey declared.');
-
-      io.to(room.id).emit('game_finished', {
-        donkeyId,
-        donkeyPlayer,
-        winners: room.gameEngine.winners
-      });
-
-      broadcastPrivateGameState(room);
-
-      // Save match to history
-      await saveCompletedMatch({
-        roomId: room.id,
-        players: room.players,
-        donkeyId
-      });
     };
 
     // 0. HEARTBEAT / PING (Keeps mobile WebSockets warm)
@@ -230,8 +259,17 @@ export function setupSocketHandlers(io) {
       if (typeof callback === 'function') callback({ success: true });
     });
 
+    let lastPlayCardTime = 0;
+
     // 5. PLAY CARD
     socket.on('play_card', ({ roomCode, cardId, userId }, callback) => {
+      const now = Date.now();
+      if (now - lastPlayCardTime < 250) {
+        if (typeof callback === 'function') callback({ success: false, error: 'Please wait a moment.' });
+        return;
+      }
+      lastPlayCardTime = now;
+
       const room = roomManager.getRoom(roomCode);
       if (!room || !room.gameEngine) {
         if (typeof callback === 'function') callback({ success: false, error: 'Active game not found' });
@@ -285,12 +323,30 @@ export function setupSocketHandlers(io) {
       if (!room) return;
 
       socket.join(room.id);
+      socket.join(`user:${user.id}`);
       updatePlayerSocketId(room);
+
+      // Mark player connected
+      const player = room.players.find(p => p.id === user.id);
+      if (player) player.connected = true;
+      if (room.gameEngine) {
+        const ep = room.gameEngine.players.find(p => p.id === user.id);
+        if (ep) ep.connected = true;
+      }
 
       // Cancel disconnect grace if player was marked away
       if (room.disconnectTimers.has(user.id)) {
         clearTimeout(room.disconnectTimers.get(user.id));
         room.disconnectTimers.delete(user.id);
+      }
+
+      // Resume game if it was paused and all disconnect timers are now clear
+      if (room.gameEngine && room.gameEngine.paused && room.disconnectTimers.size === 0) {
+        room.gameEngine.resumeGame();
+        io.to(room.id).emit('game_resumed');
+        broadcastPrivateGameState(room);
+        startTurnTimer(room);
+        return; // broadcastPrivateGameState already sent
       }
 
       if (room.gameEngine) {
@@ -456,51 +512,73 @@ export function setupSocketHandlers(io) {
         });
         broadcastPrivateGameState(room);
 
-        // Schedule 60-second grace: remove player & continue game if not reconnected
+        // Schedule grace period: remove player & continue game if not reconnected
         const graceTimer = setTimeout(() => {
-          if (!player.connected && room.status === GAME_STATUS.PLAYING && room.gameEngine) {
-            logger.info({ roomId: room.id, userId: user.id }, 'Reconnect grace period expired. Removing player from game.');
-            const gameResult = room.gameEngine.removePlayer(user.id);
-            const isHost = player.isHost || room.hostId === user.id;
-            const updated = roomManager.removePlayer(room.id, user.id);
+          try {
+            if (!player.connected && room.status === GAME_STATUS.PLAYING && room.gameEngine) {
+              logger.info({ roomId: room.id, userId: user.id }, 'Reconnect grace period expired. Removing player from game.');
+              const gameResult = room.gameEngine.removePlayer(user.id);
+              const isHost = player.isHost || room.hostId === user.id;
+              const updated = roomManager.removePlayer(room.id, user.id);
 
-            if (updated) {
-              if (isHost) {
-                io.to(updated.id).emit('host_changed', { newHostId: updated.hostId });
-              }
-              io.to(updated.id).emit('player_left', {
-                userId: user.id,
-                username: user.username,
-                reason: `${user.username} timed out and was removed.`
-              });
-              io.to(updated.id).emit('room_updated', updated);
-
-              if (gameResult && gameResult.gameOver) {
-                if (gameResult.donkeyId) {
-                  room.gameEngine.donkeyId = gameResult.donkeyId;
+              if (updated) {
+                if (isHost) {
+                  io.to(updated.id).emit('host_changed', { newHostId: updated.hostId });
                 }
-                handleGameOver(room, gameResult.donkeyPlayer || player);
-              } else if (gameResult && gameResult.chaalEnded) {
-                io.to(updated.id).emit('chaal_resolved', {
-                  resolution: gameResult.resolution,
-                  currentStarterId: room.gameEngine.currentStarterId,
-                  completedChaal: gameResult.completedChaalSnapshot
+                io.to(updated.id).emit('player_left', {
+                  userId: user.id,
+                  username: user.username,
+                  reason: `${user.username} timed out and was removed.`
                 });
-                if (gameResult.resolution?.isGameOver) {
-                  handleGameOver(room);
-                } else {
+                io.to(updated.id).emit('room_updated', updated);
+
+                if (gameResult && gameResult.gameOver) {
+                  if (gameResult.donkeyId && room.gameEngine) {
+                    room.gameEngine.donkeyId = gameResult.donkeyId;
+                  }
+                  handleGameOver(room, gameResult.donkeyPlayer || player);
+                } else if (gameResult && gameResult.chaalEnded) {
+                  io.to(updated.id).emit('chaal_resolved', {
+                    resolution: gameResult.resolution,
+                    currentStarterId: room.gameEngine ? room.gameEngine.currentStarterId : null,
+                    completedChaal: gameResult.completedChaalSnapshot
+                  });
+                  if (gameResult.resolution?.isGameOver) {
+                    handleGameOver(room);
+                  } else if (room.gameEngine) {
+                    room.gameEngine.resumeGame();
+                    io.to(updated.id).emit('game_resumed');
+                    broadcastPrivateGameState(room);
+                    startTurnTimer(room);
+                  }
+                } else if (room.gameEngine) {
                   room.gameEngine.resumeGame();
                   io.to(updated.id).emit('game_resumed');
                   broadcastPrivateGameState(room);
                   startTurnTimer(room);
                 }
-              } else {
+              }
+            } else if (player.connected && room.gameEngine && room.gameEngine.paused) {
+              // Player reconnected but game is still paused — clean up and resume
+              room.disconnectTimers.delete(user.id);
+              if (room.disconnectTimers.size === 0) {
                 room.gameEngine.resumeGame();
-                io.to(updated.id).emit('game_resumed');
+                io.to(room.id).emit('game_resumed');
                 broadcastPrivateGameState(room);
                 startTurnTimer(room);
               }
             }
+          } catch (err) {
+            logger.error({ err, roomId: room.id, userId: user.id }, 'Error in disconnect grace timer — recovering');
+            // Try to resume the game so it doesn't stay stuck paused
+            try {
+              if (room.gameEngine && room.gameEngine.paused) {
+                room.gameEngine.resumeGame();
+                io.to(room.id).emit('game_resumed');
+                broadcastPrivateGameState(room);
+                startTurnTimer(room);
+              }
+            } catch (e) { /* swallow */ }
           }
         }, ROOM_LIMITS.RECONNECT_GRACE_SECONDS * 1000);
 
