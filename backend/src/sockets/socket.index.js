@@ -73,7 +73,7 @@ export function setupSocketHandlers(io) {
       }, durationMs);
     };
 
-    const handleGameOver = async (room) => {
+    const handleGameOver = async (room, fallbackDonkeyPlayer = null) => {
       room.status = GAME_STATUS.FINISHED;
       if (room.turnTimer) {
         clearTimeout(room.turnTimer);
@@ -81,7 +81,7 @@ export function setupSocketHandlers(io) {
       }
 
       const donkeyId = room.gameEngine.donkeyId;
-      const donkeyPlayer = room.players.find(p => p.id === donkeyId);
+      const donkeyPlayer = room.players.find(p => p.id === donkeyId) || fallbackDonkeyPlayer;
 
       logger.info({ roomId: room.id, donkeyId }, 'Game finished! Donkey declared.');
 
@@ -284,37 +284,67 @@ export function setupSocketHandlers(io) {
     });
 
     // 7. LEAVE ROOM (Intentional)
-    socket.on('leave_room', ({ roomCode }) => {
+    socket.on('leave_room', ({ roomCode }, callback) => {
       const room = roomManager.getRoom(roomCode);
-      if (!room) return;
+      if (!room) {
+        if (typeof callback === 'function') callback({ success: true });
+        return;
+      }
 
       const player = room.players.find(p => p.id === user.id);
-      const isHost = player?.isHost;
+      const isHost = player?.isHost || room.hostId === user.id;
 
-      if (room.status === GAME_STATUS.PLAYING) {
-        if (isHost) {
-          roomManager.removePlayer(room.id, user.id);
-          socket.leave(room.id);
-          io.to(room.id).emit('host_changed', { newHostId: room.hostId });
-          io.to(room.id).emit('player_left', { userId: user.id });
-          broadcastPrivateGameState(room);
-        } else {
-          room.gameEngine.cancelGame();
-          roomManager.clearRoomTimers(room);
-          room.status = GAME_STATUS.CANCELLED;
-          io.to(room.id).emit('game_cancelled', { reason: `${user.username} left the game.` });
-          roomManager.removePlayer(room.id, user.id);
-          socket.leave(room.id);
-          io.to(room.id).emit('room_updated', room);
+      if (room.status === GAME_STATUS.PLAYING && room.gameEngine) {
+        // Remove player and their cards from game without cancelling game
+        const gameResult = room.gameEngine.removePlayer(user.id);
+        const updated = roomManager.removePlayer(room.id, user.id);
+        socket.leave(room.id);
+
+        if (updated) {
+          if (isHost) {
+            io.to(updated.id).emit('host_changed', { newHostId: updated.hostId });
+          }
+          io.to(updated.id).emit('player_left', {
+            userId: user.id,
+            username: user.username,
+            reason: `${user.username} left the game.`
+          });
+          io.to(updated.id).emit('room_updated', updated);
+
+          if (gameResult && gameResult.gameOver) {
+            if (gameResult.donkeyId) {
+              room.gameEngine.donkeyId = gameResult.donkeyId;
+            }
+            handleGameOver(room, gameResult.donkeyPlayer || player);
+          } else if (gameResult && gameResult.chaalEnded) {
+            io.to(updated.id).emit('chaal_resolved', {
+              resolution: gameResult.resolution,
+              currentStarterId: room.gameEngine.currentStarterId,
+              completedChaal: gameResult.completedChaalSnapshot
+            });
+            if (gameResult.resolution?.isGameOver) {
+              handleGameOver(room);
+            } else {
+              broadcastPrivateGameState(room);
+              startTurnTimer(room);
+            }
+          } else {
+            broadcastPrivateGameState(room);
+            startTurnTimer(room);
+          }
         }
       } else {
         const updated = roomManager.removePlayer(room.id, user.id);
         socket.leave(room.id);
         if (updated) {
-          io.to(updated.id).emit('player_left', { userId: user.id });
+          if (isHost) {
+            io.to(updated.id).emit('host_changed', { newHostId: updated.hostId });
+          }
+          io.to(updated.id).emit('player_left', { userId: user.id, username: user.username });
           io.to(updated.id).emit('room_updated', updated);
         }
       }
+      if (typeof callback === 'function') callback({ success: true });
     });
 
     // 7.1 KICK / REMOVE PLAYER (Host Privilege in Lobby)
@@ -408,20 +438,67 @@ export function setupSocketHandlers(io) {
         });
         broadcastPrivateGameState(room);
 
-        // Schedule 60-second grace cancellation
+        // Schedule 60-second grace: remove player & continue game if not reconnected
         const graceTimer = setTimeout(() => {
-          if (!player.connected && room.status === GAME_STATUS.PLAYING) {
-            logger.info({ roomId: room.id, userId: user.id }, 'Reconnect grace period expired. Cancelling game.');
-            room.gameEngine.cancelGame();
-            room.status = GAME_STATUS.CANCELLED;
-            io.to(room.id).emit('game_cancelled', {
-              reason: `${user.username} failed to reconnect within 60 seconds.`
-            });
+          if (!player.connected && room.status === GAME_STATUS.PLAYING && room.gameEngine) {
+            logger.info({ roomId: room.id, userId: user.id }, 'Reconnect grace period expired. Removing player from game.');
+            const gameResult = room.gameEngine.removePlayer(user.id);
+            const isHost = player.isHost || room.hostId === user.id;
+            const updated = roomManager.removePlayer(room.id, user.id);
+
+            if (updated) {
+              if (isHost) {
+                io.to(updated.id).emit('host_changed', { newHostId: updated.hostId });
+              }
+              io.to(updated.id).emit('player_left', {
+                userId: user.id,
+                username: user.username,
+                reason: `${user.username} timed out and was removed.`
+              });
+              io.to(updated.id).emit('room_updated', updated);
+
+              if (gameResult && gameResult.gameOver) {
+                if (gameResult.donkeyId) {
+                  room.gameEngine.donkeyId = gameResult.donkeyId;
+                }
+                handleGameOver(room, gameResult.donkeyPlayer || player);
+              } else if (gameResult && gameResult.chaalEnded) {
+                io.to(updated.id).emit('chaal_resolved', {
+                  resolution: gameResult.resolution,
+                  currentStarterId: room.gameEngine.currentStarterId,
+                  completedChaal: gameResult.completedChaalSnapshot
+                });
+                if (gameResult.resolution?.isGameOver) {
+                  handleGameOver(room);
+                } else {
+                  room.gameEngine.resumeGame();
+                  io.to(updated.id).emit('game_resumed');
+                  broadcastPrivateGameState(room);
+                  startTurnTimer(room);
+                }
+              } else {
+                room.gameEngine.resumeGame();
+                io.to(updated.id).emit('game_resumed');
+                broadcastPrivateGameState(room);
+                startTurnTimer(room);
+              }
+            }
           }
         }, ROOM_LIMITS.RECONNECT_GRACE_SECONDS * 1000);
 
         room.disconnectTimers.set(user.id, graceTimer);
       } else {
+        // In lobby: If the host disconnects, transfer host to another connected player if present
+        if (player && (player.isHost || room.hostId === user.id)) {
+          const nextHost = room.players.find(p => p.id !== user.id && p.connected);
+          if (nextHost) {
+            room.players.forEach(p => { p.isHost = (p.id === nextHost.id); });
+            nextHost.isHost = true;
+            nextHost.ready = true;
+            room.hostId = nextHost.id;
+            io.to(room.id).emit('host_changed', { newHostId: nextHost.id });
+          }
+        }
         io.to(room.id).emit('room_updated', room);
       }
     });

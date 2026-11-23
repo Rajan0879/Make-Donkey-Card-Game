@@ -74,4 +74,29 @@ describe('GameEngine & Timeout Integration Tests', () => {
     expect(engine.currentTurnId).toBe(engine.currentStarterId);
     expect(engine.chaal.playedCards).toHaveLength(0);
   });
+
+  it('removes player and their cards in between game without cancelling if 2+ players remain', () => {
+    const engine = new GameEngine('ROOM105', mockPlayers);
+    expect(engine.players).toHaveLength(3);
+
+    // Remove player-2
+    const res = engine.removePlayer('player-2');
+    expect(res).not.toBeNull();
+    expect(res.gameOver).toBe(false);
+    expect(engine.status).toBe('playing');
+    expect(engine.players).toHaveLength(2);
+    expect(engine.hands['player-2']).toBeUndefined();
+    expect(engine.playerOrder).not.toContain('player-2');
+  });
+
+  it('declares sole remaining player winner when all other players leave', () => {
+    const engine = new GameEngine('ROOM106', mockPlayers);
+    // Remove 2 players
+    engine.removePlayer('player-2');
+    const res2 = engine.removePlayer('player-3');
+
+    expect(res2.gameOver).toBe(true);
+    expect(engine.status).toBe('finished');
+    expect(engine.winners).toContain('player-1');
+  });
 });

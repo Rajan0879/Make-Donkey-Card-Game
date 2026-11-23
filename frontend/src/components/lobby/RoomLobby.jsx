@@ -237,7 +237,7 @@ export function RoomLobby({ onLeave }) {
   if (!room) return null;
 
   const me = room.players.find(p => p.id === user.id);
-  const isHost = me?.isHost;
+  const isHost = me?.isHost || room.hostId === user.id;
   const isReady = me?.ready;
 
   const copyCode = () => {
@@ -255,6 +255,8 @@ export function RoomLobby({ onLeave }) {
     socket.emit('join_room', { roomCode: room.code, username: user?.username }, (res) => {
       if (res && res.success) {
         setRoom(res.room);
+      } else if (res && !res.success) {
+        if (onLeave) onLeave();
       }
     });
     setTimeout(() => {
@@ -278,7 +280,9 @@ export function RoomLobby({ onLeave }) {
   };
 
   const handleLeave = () => {
-    socket.emit('leave_room', { roomCode: room.code });
+    if (room?.code && socket) {
+      socket.emit('leave_room', { roomCode: room.code });
+    }
     if (onLeave) onLeave();
   };
 
@@ -369,7 +373,7 @@ export function RoomLobby({ onLeave }) {
                 <PlayerNameCol>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <strong>{p.username}</strong>
-                    {p.isHost && (
+                    {(p.isHost || p.id === room.hostId) && (
                       <span title="Host" style={{ color: '#e5b842', display: 'flex' }}>
                         <Crown size={14} />
                       </span>

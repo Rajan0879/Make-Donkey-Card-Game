@@ -39,11 +39,15 @@ export function App() {
         socket.emit('join_room', { roomCode: codeFromUrl, username: user?.username }, (res) => {
           if (res && res.success) {
             setRoom(res.room);
+          } else if (res && !res.success) {
+            clearRoom();
+            resetGame();
+            window.history.pushState(null, '', '/');
           }
         });
       }
     }
-  }, [socket, user?.username, room, setRoom]);
+  }, [socket, user?.username, room, setRoom, clearRoom, resetGame]);
 
   // 2. Synchronize URL bar with current app stage without breaking WebSocket
   useEffect(() => {
@@ -83,9 +87,9 @@ export function App() {
   }, [room, socket, clearRoom, resetGame]);
 
   const handleLeaveAll = () => {
+    window.history.pushState(null, '', '/');
     resetGame();
     clearRoom();
-    window.history.pushState(null, '', '/');
   };
 
   return (

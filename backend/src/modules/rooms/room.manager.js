@@ -169,11 +169,16 @@ export class RoomManager {
     }
 
     // If host left, transfer host privileges to remaining connected player
-    if (wasHost) {
+    if (wasHost || room.hostId === userId) {
       const nextHost = room.players.find(p => p.connected) || room.players[0];
       if (nextHost) {
+        room.players.forEach(p => { p.isHost = (p.id === nextHost.id); });
         nextHost.isHost = true;
+        nextHost.ready = true;
         room.hostId = nextHost.id;
+        if (room.gameEngine && room.gameEngine.players) {
+          room.gameEngine.players.forEach(p => { p.isHost = (p.id === nextHost.id); });
+        }
       }
     }
 

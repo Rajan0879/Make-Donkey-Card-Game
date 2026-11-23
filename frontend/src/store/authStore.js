@@ -10,12 +10,19 @@ const storedUser = (() => {
   }
 })();
 
-const defaultUser = storedUser || {
-  id: 'usr_' + Math.random().toString(36).substring(2, 9),
-  username: 'Player_' + Math.floor(1000 + Math.random() * 9000),
-  avatar: null,
-  isGuest: true
-};
+const defaultUser = (() => {
+  if (storedUser) return storedUser;
+  const user = {
+    id: 'usr_' + Math.random().toString(36).substring(2, 9),
+    username: 'Player_' + Math.floor(1000 + Math.random() * 9000),
+    avatar: null,
+    isGuest: true
+  };
+  try {
+    localStorage.setItem('donkey_user', JSON.stringify(user));
+  } catch (e) {}
+  return user;
+})();
 
 export const useAuthStore = create((set) => ({
   user: defaultUser,

@@ -46,6 +46,11 @@ export function useSocket() {
             if (res && res.success) {
               setRoom(res.room);
               requestSync();
+            } else if (res && !res.success) {
+              // Room was closed or player removed while offline
+              setRoom(null);
+              resetGame();
+              window.history.pushState(null, '', '/');
             }
           });
         }
@@ -53,6 +58,22 @@ export function useSocket() {
 
       socket.on('room_created', (r) => setRoom(r));
       socket.on('room_updated', (r) => setRoom(r));
+
+      socket.on('host_changed', ({ newHostId }) => {
+        const currentRoom = roomRef.current;
+        if (currentRoom) {
+          const updatedPlayers = (currentRoom.players || []).map(p => ({
+            ...p,
+            isHost: p.id === newHostId,
+            ready: p.id === newHostId ? true : p.ready
+          }));
+          setRoom({
+            ...currentRoom,
+            hostId: newHostId,
+            players: updatedPlayers
+          });
+        }
+      });
 
       socket.on('game_started', () => {
         soundManager.playButtonClick();
@@ -105,7 +126,23 @@ export function useSocket() {
     // Auto-sync on screen wake up or tab visibility change
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        requestSync();
+        const currentRoomCode = roomRef.current?.code || roomRef.current?.id;
+        if (currentRoomCode) {
+          if (socket.connected) {
+            socket.emit('join_room', { roomCode: currentRoomCode, username: user?.username }, (res) => {
+              if (res && res.success) {
+                setRoom(res.room);
+                requestSync();
+              } else if (res && !res.success) {
+                setRoom(null);
+                resetGame();
+                window.history.pushState(null, '', '/');
+              }
+            });
+          } else {
+            socket.connect();
+          }
+        }
       }
     };
 
