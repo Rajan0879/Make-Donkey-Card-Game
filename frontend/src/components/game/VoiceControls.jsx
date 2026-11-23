@@ -23,15 +23,17 @@ const MicButton = styled.button`
       : $isMuted
       ? theme.colors.danger
       : theme.colors.success};
-  padding: 5px 12px;
-  border-radius: ${({ theme }) => theme.radii.full};
+  padding: ${({ $compact }) => ($compact ? '4px 6px' : '5px 12px')};
+  border-radius: ${({ $compact, theme }) => ($compact ? '6px' : theme.radii.full)};
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  justify-content: center;
+  gap: 4px;
+  font-size: 11px;
   font-weight: 700;
   transition: all 0.2s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 
   &:hover {
     transform: translateY(-1px);
@@ -39,12 +41,12 @@ const MicButton = styled.button`
   }
 
   @media (max-width: 600px) {
-    padding: 4px 8px;
-    font-size: 11px;
+    padding: ${({ $compact }) => ($compact ? '3px 5px' : '4px 8px')};
+    font-size: 10px;
   }
 `;
 
-export function VoiceControls({ socket, roomCode, players, myUserId }) {
+export function VoiceControls({ socket, roomCode, players, myUserId, compact = false }) {
   // Sync initial state with voiceChatService singleton
   const [isActive, setIsActive] = useState(voiceChatService.isEnabled);
   const [isMuted, setIsMuted] = useState(voiceChatService.isMuted);
@@ -84,6 +86,7 @@ export function VoiceControls({ socket, roomCode, players, myUserId }) {
 
   return (
     <MicButton
+      $compact={compact}
       $active={isActive}
       $isMuted={isMuted}
       onClick={handleToggleVoice}
@@ -91,15 +94,18 @@ export function VoiceControls({ socket, roomCode, players, myUserId }) {
     >
       {!isActive ? (
         <>
-          <MicOff size={14} /> Join Voice
+          <MicOff size={13} />
+          {!compact && <span>Join Voice</span>}
         </>
       ) : isMuted ? (
         <>
-          <MicOff size={14} /> Muted
+          <MicOff size={13} />
+          {!compact && <span>Muted</span>}
         </>
       ) : (
         <>
-          <Mic size={14} /> Mic On
+          <Mic size={13} />
+          {!compact && <span>Mic On</span>}
         </>
       )}
     </MicButton>

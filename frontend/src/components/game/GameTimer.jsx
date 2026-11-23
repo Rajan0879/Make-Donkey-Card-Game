@@ -6,19 +6,27 @@ import { soundManager } from '../../services/sound/soundManager.js';
 const TimerBox = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
   background: rgba(10, 13, 12, 0.75);
   border: 1px solid ${({ $isWarning, theme }) =>
     $isWarning ? theme.colors.danger : theme.colors.surfaceBorder};
   border-radius: ${({ theme }) => theme.radii.full};
-  padding: 6px 14px;
+  padding: 4px 10px;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 12px;
   color: ${({ $isWarning, theme }) =>
     $isWarning ? theme.colors.danger : theme.colors.goldLight};
   box-shadow: ${({ $isWarning }) =>
     $isWarning ? '0 0 15px rgba(239, 68, 68, 0.4)' : 'none'};
   transition: all 0.3s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  @media (max-width: 480px) {
+    padding: 3px 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
 `;
 
 export function GameTimer({ deadline, isMyTurn }) {

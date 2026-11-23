@@ -25,7 +25,7 @@ const TableContainer = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 8px 10px 24px 10px; margin-bottom: 12px;
+  padding: max(8px, env(safe-area-inset-top, 8px)) max(8px, env(safe-area-inset-right, 8px)) max(18px, env(safe-area-inset-bottom, 18px)) max(8px, env(safe-area-inset-left, 8px));
   position: fixed;
   top: 0;
   left: 0;
@@ -35,7 +35,7 @@ const TableContainer = styled.div`
   box-sizing: border-box;
 
   @media (max-width: 600px) {
-    padding: 6px 8px 20px 8px; margin-bottom: 12px;
+    padding: max(6px, env(safe-area-inset-top, 6px)) max(6px, env(safe-area-inset-right, 6px)) max(14px, env(safe-area-inset-bottom, 14px)) max(6px, env(safe-area-inset-left, 6px));
   }
 `;
 
@@ -51,38 +51,45 @@ const TopBar = styled.div`
   background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 4px 8px;
+  padding: 4px 6px;
   border-radius: 12px;
-  gap: 6px;
+  gap: 4px;
+  overflow: hidden;
 
   @media (max-width: 500px) {
-    padding: 4px 6px;
-    gap: 4px;
+    padding: 3px 4px;
+    gap: 3px;
   }
 `;
 
 const NavLeft = styled.div`
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
+  gap: 4px;
+  flex-shrink: 1;
+  min-width: 0;
 
   @media (max-width: 500px) {
-    gap: 4px;
+    gap: 3px;
   }
 `;
 
 const RoomBadge = styled.span`
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   color: ${({ theme }) => theme.colors.goldLight};
   letter-spacing: 0.5px;
+  white-space: nowrap;
+
+  @media (max-width: 480px) {
+    font-size: 10px;
+  }
 `;
 
 const NavRight = styled.div`
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   flex-shrink: 0;
 `;
 
@@ -90,16 +97,18 @@ const IconButton = styled.button`
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: ${({ theme }) => theme.colors.textMuted};
-  padding: 4px 7px;
-  border-radius: 7px;
+  padding: 4px 6px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
-  gap: 3px;
-  font-size: 11px;
+  justify-content: center;
+  gap: 2px;
+  font-size: 10px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 
   &:hover {
     background: rgba(255, 255, 255, 0.16);
@@ -112,7 +121,7 @@ const IconButton = styled.button`
   }
 
   @media (max-width: 480px) {
-    padding: 3px 5px;
+    padding: 3px 4px;
   }
 `;
 
@@ -232,6 +241,7 @@ export function GameTable({ onLeave }) {
             roomCode={roomId}
             players={players}
             myUserId={user.id}
+            compact={true}
           />
         </NavLeft>
 
@@ -240,17 +250,15 @@ export function GameTable({ onLeave }) {
         <NavRight>
           {/* In-game quick sync / refresh button (zero page reload, seamless socket state fetch) */}
           <IconButton onClick={handleManualSync} title="Sync cards / Refresh Chaal">
-            <RotateCw size={13} className={isSyncing ? 'animate-spin' : ''} />
-            <span style={{ display: 'none', '@media (min-width: 540px)': { display: 'inline' } }}>Sync</span>
+            <RotateCw size={12} className={isSyncing ? 'animate-spin' : ''} />
           </IconButton>
 
-          <SoundToggle />
+          <SoundToggle compact={true} />
           <IconButton onClick={() => setIsHistoryOpen(true)} title="View Chaal History">
-            <History size={13} />
-            <span style={{ display: 'none', '@media (min-width: 540px)': { display: 'inline' } }}>History</span>
+            <History size={12} />
           </IconButton>
           <IconButton className="danger" onClick={handleLeave} title="Leave Game">
-            <LogOut size={13} />
+            <LogOut size={12} />
           </IconButton>
         </NavRight>
       </TopBar>
