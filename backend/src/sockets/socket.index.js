@@ -1,4 +1,5 @@
 import { roomManager } from '../modules/rooms/room.manager.js';
+import { serializeRoom } from '../modules/rooms/room.serializer.js';
 import { serializeGameStateForPlayer } from '../modules/game/game.serializer.js';
 import { saveCompletedMatch } from '../services/history.service.js';
 import { ROOM_LIMITS, GAME_STATUS } from '../modules/game/game.constants.js';
@@ -163,9 +164,9 @@ export function setupSocketHandlers(io) {
         logger.info({ roomId: room.id, hostId: user.id, username: user.username }, 'Room created');
 
         if (typeof callback === 'function') {
-          callback({ success: true, room });
+          callback({ success: true, room: serializeRoom(room) });
         }
-        socket.emit('room_created', room);
+        socket.emit('room_created', serializeRoom(room));
       } catch (err) {
         logger.error({ err }, 'Error creating room');
         if (typeof callback === 'function') callback({ success: false, error: err.message });
@@ -205,11 +206,11 @@ export function setupSocketHandlers(io) {
         logger.info({ roomId: room.id, userId: user.id, username: user.username, reconnected: result.reconnected }, 'Player joined/reconnected to room');
 
         if (typeof callback === 'function') {
-          callback({ success: true, room, isGamePlaying: room.status === GAME_STATUS.PLAYING });
+          callback({ success: true, room: serializeRoom(room), isGamePlaying: room.status === GAME_STATUS.PLAYING });
         }
 
-        io.to(room.id).emit('room_updated', room);
-        io.to(room.id).emit('player_joined', { player: user, room });
+        io.to(room.id).emit('room_updated', serializeRoom(room));
+        io.to(room.id).emit('player_joined', { player: user, room: serializeRoom(room) });
 
         // If game is in progress, immediately deliver their current hand
         if (room.gameEngine) {
@@ -231,9 +232,9 @@ export function setupSocketHandlers(io) {
       }
       updatePlayerSocketId(room);
 
-      io.to(room.id).emit('room_updated', room);
+      io.to(room.id).emit('room_updated', serializeRoom(room));
       io.to(room.id).emit('player_ready_updated', { userId: user.id, ready });
-      if (typeof callback === 'function') callback({ success: true, room });
+      if (typeof callback === 'function') callback({ success: true, room: serializeRoom(room) });
     });
 
     // 4. START GAME
@@ -318,9 +319,13 @@ export function setupSocketHandlers(io) {
     });
 
     // 6. REQUEST GAME STATE (On Screen Unlock, Reconnection, or Tab Focus)
-    socket.on('request_game_state', ({ roomCode }) => {
+    socket.on('request_game_state', ({ roomCode }, callback) => {
       const room = roomManager.getRoom(roomCode);
-      if (!room) return;
+      if (!room) {
+        if (typeof callback === 'function') callback({ success: false, error: 'Room no longer exists' });
+        socket.emit('room_not_found', { roomCode });
+        return;
+      }
 
       socket.join(room.id);
       socket.join(`user:${user.id}`);
@@ -346,6 +351,7 @@ export function setupSocketHandlers(io) {
         io.to(room.id).emit('game_resumed');
         broadcastPrivateGameState(room);
         startTurnTimer(room);
+        if (typeof callback === 'function') callback({ success: true });
         return; // broadcastPrivateGameState already sent
       }
 
@@ -353,8 +359,9 @@ export function setupSocketHandlers(io) {
         const privateState = serializeGameStateForPlayer(room.gameEngine, user.id);
         socket.emit('game_state_updated', privateState);
       } else {
-        socket.emit('room_updated', room);
+        socket.emit('room_updated', serializeRoom(room));
       }
+      if (typeof callback === 'function') callback({ success: true });
     });
 
     // 7. LEAVE ROOM (Intentional)
@@ -383,7 +390,7 @@ export function setupSocketHandlers(io) {
             username: user.username,
             reason: `${user.username} left the game.`
           });
-          io.to(updated.id).emit('room_updated', updated);
+          io.to(updated.id).emit('room_updated', serializeRoom(updated));
 
           if (gameResult && gameResult.gameOver) {
             if (gameResult.donkeyId) {
@@ -415,7 +422,7 @@ export function setupSocketHandlers(io) {
             io.to(updated.id).emit('host_changed', { newHostId: updated.hostId });
           }
           io.to(updated.id).emit('player_left', { userId: user.id, username: user.username });
-          io.to(updated.id).emit('room_updated', updated);
+          io.to(updated.id).emit('room_updated', serializeRoom(updated));
         }
       }
       if (typeof callback === 'function') callback({ success: true });
@@ -464,7 +471,7 @@ export function setupSocketHandlers(io) {
       // Notify remaining room members
       io.to(room.id).emit('player_left', { userId: targetUserId, username: targetPlayer.username });
       if (updated) {
-        io.to(room.id).emit('room_updated', updated);
+        io.to(room.id).emit('room_updated', serializeRoom(updated));
       }
 
       if (typeof callback === 'function') callback({ success: true });
@@ -530,7 +537,7 @@ export function setupSocketHandlers(io) {
                   username: user.username,
                   reason: `${user.username} timed out and was removed.`
                 });
-                io.to(updated.id).emit('room_updated', updated);
+                io.to(updated.id).emit('room_updated', serializeRoom(updated));
 
                 if (gameResult && gameResult.gameOver) {
                   if (gameResult.donkeyId && room.gameEngine) {
@@ -595,7 +602,7 @@ export function setupSocketHandlers(io) {
             io.to(room.id).emit('host_changed', { newHostId: nextHost.id });
           }
         }
-        io.to(room.id).emit('room_updated', room);
+        io.to(room.id).emit('room_updated', serializeRoom(room));
       }
     });
   });

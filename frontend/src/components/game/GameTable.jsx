@@ -302,10 +302,26 @@ export function GameTable({ onLeave }) {
     if (isSyncing) return;
     setIsSyncing(true);
     soundManager.playButtonClick();
-    socket.emit('request_game_state', { roomCode: roomId });
+
+    // 1. Force reconnect socket if offline or waking from sleep
+    if (socket && !socket.connected) {
+      socket.connect();
+    }
+
+    // 2. Request latest state with callback fallback
+    socket.emit('request_game_state', { roomCode: roomId }, (res) => {
+      setIsSyncing(false);
+      if (res && !res.success) {
+        handleLeave();
+      }
+    });
+
+    // 3. Re-verify room membership
+    socket.emit('join_room', { roomCode: roomId, username: user?.username });
+
     setTimeout(() => {
       setIsSyncing(false);
-    }, 600);
+    }, 1000);
   };
 
   const handleLeave = () => {

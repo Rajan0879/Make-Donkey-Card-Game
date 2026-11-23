@@ -119,6 +119,12 @@ export function useSocket() {
         window.history.pushState(null, '', '/');
       });
 
+      socket.on('room_not_found', () => {
+        setRoom(null);
+        resetGame();
+        window.history.pushState(null, '', '/');
+      });
+
       socket.on('game_finished', (data) => {
         setDonkeyAnnouncement(data);
         soundManager.playDonkeyDeclared();

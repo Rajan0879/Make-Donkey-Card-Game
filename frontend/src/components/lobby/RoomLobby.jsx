@@ -250,7 +250,13 @@ export function RoomLobby({ onLeave }) {
   const handleManualRefresh = () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
-    // Re-sync lobby room state from server
+
+    // 1. Force reconnect socket if offline or waking from sleep
+    if (socket && !socket.connected) {
+      socket.connect();
+    }
+
+    // 2. Re-sync lobby room state from server
     socket.emit('request_game_state', { roomCode: room.code });
     socket.emit('join_room', { roomCode: room.code, username: user?.username }, (res) => {
       if (res && res.success) {
@@ -261,7 +267,7 @@ export function RoomLobby({ onLeave }) {
     });
     setTimeout(() => {
       setIsRefreshing(false);
-    }, 600);
+    }, 800);
   };
 
   const toggleReady = () => {
