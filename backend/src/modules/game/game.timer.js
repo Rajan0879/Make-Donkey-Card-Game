@@ -34,6 +34,7 @@ export function handleTurnTimeout(game) {
     // Clear Chaal and assign new starter
     game.currentStarterId = nextStarter;
     game.currentTurnId = nextStarter;
+    game.isFirstChaalEver = false; // First Chaal Ace of Spades lead forfeited on timeout
     game.chaal = {
       starterId: nextStarter,
       startingSuit: null,
@@ -53,6 +54,7 @@ export function handleTurnTimeout(game) {
     };
   } else {
     // 8.1 Non-starter timeout: Treat as off-suit termination
+    game.isFirstChaalEver = false;
     game.chaal.endedByOffSuit = true;
     game.chaal.timedOutPlayerId = currentTurnId;
 

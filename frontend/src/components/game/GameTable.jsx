@@ -165,6 +165,8 @@ export function GameTable({ onLeave }) {
   const socket = useSocket();
   const { user } = useAuthStore();
   const [isSyncing, setIsSyncing] = useState(false);
+  const [playError, setPlayError] = useState(null);
+  const [isPlayingCard, setIsPlayingCard] = useState(false);
   const {
     gameState,
     selectedCardId,
@@ -193,19 +195,30 @@ export function GameTable({ onLeave }) {
     isFirstChaalEver
   } = gameState;
 
-  const isMyTurn = currentTurnId === user.id;
+  const myPlayerId = gameState.myPlayerId || user.id;
+  const isMyTurn = currentTurnId === myPlayerId;
   const isStarter = currentTurnId === chaal.starterId;
-  const opponents = players.filter(p => p.id !== user.id);
-  const me = players.find(p => p.id === user.id);
+  const opponents = players.filter(p => p.id !== myPlayerId);
+  const me = players.find(p => p.id === myPlayerId);
 
   // Map opponent seats to consistent indices for stable avatars
   const seatIndexMap = new Map();
   players.forEach((p, idx) => seatIndexMap.set(p.id, idx));
 
   const handlePlayCard = (cardId) => {
-    socket.emit('play_card', { roomCode: roomId, cardId }, (res) => {
+    if (isPlayingCard) return;
+    setIsPlayingCard(true);
+    setPlayError(null);
+
+    socket.emit('play_card', { roomCode: roomId, cardId, userId: myPlayerId }, (res) => {
+      setIsPlayingCard(false);
       if (res && res.success) {
         setSelectedCardId(null);
+      } else if (res && !res.success) {
+        setPlayError(res.error || 'Failed to play card');
+        soundManager.playTurnWarning();
+        // Re-sync game state from server to resolve any desync
+        socket.emit('request_game_state', { roomCode: roomId });
       }
     });
   };
@@ -240,7 +253,7 @@ export function GameTable({ onLeave }) {
             socket={socket}
             roomCode={roomId}
             players={players}
-            myUserId={user.id}
+            myUserId={myPlayerId}
             compact={true}
           />
         </NavLeft>
@@ -296,6 +309,8 @@ export function GameTable({ onLeave }) {
         isFirstChaalEver={isFirstChaalEver}
         isStarter={isStarter}
         startingSuit={chaal.startingSuit}
+        isPlaying={isPlayingCard}
+        playError={playError}
       />
 
       {/* Chaal History Modal */}

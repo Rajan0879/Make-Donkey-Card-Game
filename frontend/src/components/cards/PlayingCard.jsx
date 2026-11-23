@@ -151,9 +151,9 @@ export function PlayingCard({
       $disabled={disabled}
       $compact={compact}
       $isAceOfSpades={isAceOfSpades}
-      onClick={!disabled && onClick ? onClick : undefined}
+      onClick={onClick}
       whileHover={!disabled ? { y: selected ? -14 : -6, scale: 1.04 } : {}}
-      whileTap={!disabled ? { scale: 0.96 } : {}}
+      whileTap={{ scale: 0.96 }}
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
     >
       <CornerInfo $compact={compact}>

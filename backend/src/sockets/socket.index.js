@@ -9,6 +9,9 @@ export function setupSocketHandlers(io) {
     const user = socket.user;
     logger.info({ userId: user.id, socketId: socket.id }, 'Player connected via Socket.IO');
 
+    // Join user room so messages addressed to this user always reach them
+    socket.join(`user:${user.id}`);
+
     // Helper: update socket ID mapping when user connects/reconnects
     const updatePlayerSocketId = (room) => {
       if (!room) return;
@@ -26,14 +29,22 @@ export function setupSocketHandlers(io) {
       }
     };
 
+    // Auto reconnect to active room if player has one
+    const existingRoom = roomManager.getRoomByUser(user.id);
+    if (existingRoom) {
+      socket.join(existingRoom.id);
+      updatePlayerSocketId(existingRoom);
+    }
+
     // Helper: broadcast private hands to all players in a room
     const broadcastPrivateGameState = (room) => {
       if (!room || !room.gameEngine) return;
       for (const player of room.players) {
+        const privateState = serializeGameStateForPlayer(room.gameEngine, player.id);
         if (player.socketId) {
-          const privateState = serializeGameStateForPlayer(room.gameEngine, player.id);
           io.to(player.socketId).emit('game_state_updated', privateState);
         }
+        io.to(`user:${player.id}`).emit('game_state_updated', privateState);
       }
     };
 
@@ -220,15 +231,22 @@ export function setupSocketHandlers(io) {
     });
 
     // 5. PLAY CARD
-    socket.on('play_card', ({ roomCode, cardId }, callback) => {
+    socket.on('play_card', ({ roomCode, cardId, userId }, callback) => {
       const room = roomManager.getRoom(roomCode);
       if (!room || !room.gameEngine) {
         if (typeof callback === 'function') callback({ success: false, error: 'Active game not found' });
         return;
       }
+      const effectiveUserId = (userId && typeof userId === 'string') ? userId : user.id;
+
+      socket.join(room.id);
+      socket.join(`user:${user.id}`);
+      if (effectiveUserId !== user.id) {
+        socket.join(`user:${effectiveUserId}`);
+      }
       updatePlayerSocketId(room);
 
-      const result = room.gameEngine.playCard(user.id, cardId);
+      const result = room.gameEngine.playCard(effectiveUserId, cardId);
       if (!result.success) {
         if (typeof callback === 'function') callback(result);
         socket.emit('error', { message: result.error });
@@ -237,7 +255,7 @@ export function setupSocketHandlers(io) {
 
       // Notify entire room channel about the card play so all phones see it immediately
       io.to(room.id).emit('card_played', {
-        playerId: user.id,
+        playerId: effectiveUserId,
         playRecord: result.playRecord
       });
 

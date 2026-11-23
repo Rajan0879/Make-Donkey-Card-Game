@@ -27,6 +27,7 @@ export function serializeGameStateForPlayer(engine, recipientPlayerId) {
     status: engine.status,
     paused: engine.paused,
     disconnectGraceDeadline: engine.disconnectGraceDeadline,
+    myPlayerId: recipientPlayerId,
     myHand,
     players: publicPlayers,
     playerOrder: engine.playerOrder,
