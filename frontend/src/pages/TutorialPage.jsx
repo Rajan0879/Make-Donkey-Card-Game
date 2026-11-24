@@ -5,84 +5,121 @@ const PageWrapper = styled.div`
   max-width: 900px;
   width: 100%;
   margin: 0 auto;
-  padding: 32px 16px 48px;
+  padding: 24px 16px 40px;
   box-sizing: border-box;
   color: ${({ theme }) => theme.colors.text};
+
+  @media (max-width: 600px) {
+    padding: 16px 12px 32px;
+  }
 `;
 
 const Header = styled.div`
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
-  padding-bottom: 16px;
+  padding-bottom: 14px;
+
+  @media (max-width: 600px) {
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+  }
 `;
 
 const Title = styled.h1`
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 800;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   color: ${({ theme }) => theme.colors.goldLight};
+
+  @media (max-width: 600px) {
+    font-size: 22px;
+  }
 `;
 
 const Subtitle = styled.p`
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
   color: ${({ theme }) => theme.colors.textMuted};
   line-height: 1.5;
+
+  @media (max-width: 600px) {
+    font-size: 13px;
+  }
 `;
 
 const StepGrid = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+
+  @media (max-width: 600px) {
+    gap: 12px;
+  }
 `;
 
 const StepCard = styled.div`
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
   border-radius: 10px;
-  padding: 20px;
+  padding: 18px;
   display: flex;
-  gap: 16px;
+  gap: 14px;
 
   @media (max-width: 600px) {
-    flex-direction: column;
+    padding: 14px;
     gap: 12px;
   }
 `;
 
 const StepNumber = styled.div`
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
   background: ${({ theme }) => theme.colors.surfaceLight};
   border: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
   color: ${({ theme }) => theme.colors.goldLight};
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+
+  @media (max-width: 600px) {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+  }
 `;
 
 const StepContent = styled.div`
   flex: 1;
+  min-width: 0;
 
   h2 {
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 700;
     margin: 0 0 6px 0;
     color: ${({ theme }) => theme.colors.text};
+
+    @media (max-width: 600px) {
+      font-size: 15px;
+    }
   }
 
   p {
-    margin: 0 0 10px 0;
+    margin: 0 0 8px 0;
     font-size: 14px;
     color: ${({ theme }) => theme.colors.textMuted};
     line-height: 1.6;
 
     &:last-child {
       margin-bottom: 0;
+    }
+
+    @media (max-width: 600px) {
+      font-size: 13px;
+      line-height: 1.5;
     }
   }
 `;
@@ -99,6 +136,11 @@ const ProTip = styled.div`
   strong {
     color: ${({ theme }) => theme.colors.goldLight};
   }
+
+  @media (max-width: 600px) {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
 `;
 
 const ActionBanner = styled.div`
@@ -108,10 +150,17 @@ const ActionBanner = styled.div`
   background: ${({ theme }) => theme.colors.surfaceLight};
   border: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
   border-radius: 8px;
-  padding: 16px 20px;
-  margin-top: 28px;
-  gap: 16px;
+  padding: 16px 18px;
+  margin-top: 24px;
+  gap: 14px;
   flex-wrap: wrap;
+
+  @media (max-width: 600px) {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px;
+    gap: 12px;
+  }
 `;
 
 const Button = styled.button`
@@ -123,9 +172,16 @@ const Button = styled.button`
   padding: 10px 18px;
   font-size: 14px;
   cursor: pointer;
+  white-space: nowrap;
 
   &:hover {
     background: ${({ theme }) => theme.colors.goldLight};
+  }
+
+  @media (max-width: 600px) {
+    width: 100%;
+    padding: 12px;
+    text-align: center;
   }
 `;
 
@@ -148,7 +204,7 @@ export function TutorialPage({ onStartPlaying }) {
               On the main screen, enter your name. Click <strong>Host a Game</strong> to generate a unique 6-character room code (e.g. <code>X8W7R7</code>), or enter an existing code under <strong>Join a Game</strong>.
             </p>
             <ProTip>
-              <strong>Tip:</strong> In the lobby, click the room badge to copy just the 6-character code to your clipboard to send to friends.
+              <strong>Tip:</strong> In the lobby, tap the room badge to copy just the 6-character code to your clipboard.
             </ProTip>
           </StepContent>
         </StepCard>
@@ -158,7 +214,7 @@ export function TutorialPage({ onStartPlaying }) {
           <StepContent>
             <h2>Mark Ready & Start the Game</h2>
             <p>
-              Make Donkey requires a minimum of 3 players (up to 6). Every joined player clicks <strong>Mark Ready</strong>. Once all players are ready, the host clicks <strong>Start Game</strong> to shuffle and deal the cards.
+              Make Donkey requires a minimum of 3 players (up to 6). Every joined player clicks <strong>Mark Ready</strong>. Once all players are ready, the host clicks <strong>Start Game</strong> to deal the cards.
             </p>
           </StepContent>
         </StepCard>
@@ -194,7 +250,7 @@ export function TutorialPage({ onStartPlaying }) {
           <StepContent>
             <h2>Off-Suit Penalty ("Cutting")</h2>
             <p>
-              When a suit you don't possess is led, you can throw an <strong>off-suit card</strong>. The round stops immediately. Whoever threw the highest card of the starting suit has to take every card played in that round into their hand!
+              When a suit you don't possess is led, you can throw an <strong>off-suit card</strong>. The round stops immediately. Whoever threw the highest card of the starting suit takes every card played in that round into their hand!
             </p>
             <ProTip>
               <strong>Strategy:</strong> Getting rid of high cards when someone else leads a suit you lack is the key to emptying your hand quickly.

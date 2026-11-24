@@ -5,47 +5,72 @@ const PageWrapper = styled.div`
   max-width: 900px;
   width: 100%;
   margin: 0 auto;
-  padding: 32px 16px 48px;
+  padding: 24px 16px 40px;
   box-sizing: border-box;
   color: ${({ theme }) => theme.colors.text};
+
+  @media (max-width: 600px) {
+    padding: 16px 12px 32px;
+  }
 `;
 
 const Header = styled.div`
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
-  padding-bottom: 16px;
+  padding-bottom: 14px;
+
+  @media (max-width: 600px) {
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+  }
 `;
 
 const Title = styled.h1`
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 800;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   color: ${({ theme }) => theme.colors.goldLight};
+
+  @media (max-width: 600px) {
+    font-size: 22px;
+  }
 `;
 
 const Subtitle = styled.p`
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
   color: ${({ theme }) => theme.colors.textMuted};
   line-height: 1.5;
+
+  @media (max-width: 600px) {
+    font-size: 13px;
+  }
 `;
 
 const Section = styled.section`
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
   border-radius: 10px;
-  padding: 20px;
-  margin-bottom: 20px;
+  padding: 18px;
+  margin-bottom: 16px;
+
+  @media (max-width: 600px) {
+    padding: 14px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
 `;
 
 const SectionHeading = styled.h2`
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
-  margin: 0 0 12px 0;
+  margin: 0 0 10px 0;
   color: ${({ theme }) => theme.colors.text};
-  display: flex;
-  align-items: center;
-  gap: 8px;
+
+  @media (max-width: 600px) {
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
 `;
 
 const Text = styled.p`
@@ -56,6 +81,11 @@ const Text = styled.p`
 
   &:last-child {
     margin-bottom: 0;
+  }
+
+  @media (max-width: 600px) {
+    font-size: 13px;
+    line-height: 1.5;
   }
 `;
 
@@ -73,13 +103,32 @@ const RuleList = styled.ol`
   strong {
     color: ${({ theme }) => theme.colors.text};
   }
+
+  @media (max-width: 600px) {
+    font-size: 13px;
+    line-height: 1.6;
+    padding-left: 16px;
+
+    li {
+      margin-bottom: 6px;
+    }
+  }
+`;
+
+const TableResponsiveWrapper = styled.div`
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 10px;
+  border-radius: 6px;
+  border: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
 `;
 
 const Table = styled.table`
   width: 100%;
+  min-width: 480px;
   border-collapse: collapse;
   font-size: 13px;
-  margin-top: 12px;
 
   th, td {
     padding: 10px 12px;
@@ -96,6 +145,18 @@ const Table = styled.table`
   td {
     color: ${({ theme }) => theme.colors.textMuted};
   }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  @media (max-width: 600px) {
+    font-size: 12px;
+
+    th, td {
+      padding: 8px 10px;
+    }
+  }
 `;
 
 const ActionBanner = styled.div`
@@ -105,10 +166,17 @@ const ActionBanner = styled.div`
   background: ${({ theme }) => theme.colors.surfaceLight};
   border: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
   border-radius: 8px;
-  padding: 16px 20px;
-  margin-top: 24px;
-  gap: 16px;
+  padding: 16px 18px;
+  margin-top: 20px;
+  gap: 14px;
   flex-wrap: wrap;
+
+  @media (max-width: 600px) {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px;
+    gap: 12px;
+  }
 `;
 
 const Button = styled.button`
@@ -120,9 +188,16 @@ const Button = styled.button`
   padding: 10px 18px;
   font-size: 14px;
   cursor: pointer;
+  white-space: nowrap;
 
   &:hover {
     background: ${({ theme }) => theme.colors.goldLight};
+  }
+
+  @media (max-width: 600px) {
+    width: 100%;
+    padding: 12px;
+    text-align: center;
   }
 `;
 
@@ -143,37 +218,39 @@ export function RulesPage({ onStartPlaying }) {
           A standard 52-card deck is used (ranks 2 through Ace, where Ace is high).
           Games support 3 to 6 players. Cards are distributed in rounds until hands are dealt:
         </Text>
-        <Table>
-          <thead>
-            <tr>
-              <th>Player Count</th>
-              <th>Cards Dealt Per Player</th>
-              <th>Cards Set Aside</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>3 Players</td>
-              <td>16 cards each</td>
-              <td>0 (all active cards in play)</td>
-            </tr>
-            <tr>
-              <td>4 Players</td>
-              <td>12 cards each</td>
-              <td>0</td>
-            </tr>
-            <tr>
-              <td>5 Players</td>
-              <td>9 cards each</td>
-              <td>3 cards removed (Ace of Spades is never removed)</td>
-            </tr>
-            <tr>
-              <td>6 Players</td>
-              <td>8 cards each</td>
-              <td>0</td>
-            </tr>
-          </tbody>
-        </Table>
+        <TableResponsiveWrapper>
+          <Table>
+            <thead>
+              <tr>
+                <th>Player Count</th>
+                <th>Cards Dealt Per Player</th>
+                <th>Cards Set Aside</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>3 Players</td>
+                <td>16 cards each</td>
+                <td>0 (all active cards in play)</td>
+              </tr>
+              <tr>
+                <td>4 Players</td>
+                <td>12 cards each</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>5 Players</td>
+                <td>9 cards each</td>
+                <td>3 cards removed (Ace of Spades is never removed)</td>
+              </tr>
+              <tr>
+                <td>6 Players</td>
+                <td>8 cards each</td>
+                <td>0</td>
+              </tr>
+            </tbody>
+          </Table>
+        </TableResponsiveWrapper>
       </Section>
 
       <Section>

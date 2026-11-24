@@ -5,44 +5,71 @@ const PageWrapper = styled.div`
   max-width: 900px;
   width: 100%;
   margin: 0 auto;
-  padding: 32px 16px 48px;
+  padding: 24px 16px 40px;
   box-sizing: border-box;
   color: ${({ theme }) => theme.colors.text};
+
+  @media (max-width: 600px) {
+    padding: 16px 12px 32px;
+  }
 `;
 
 const Header = styled.div`
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
-  padding-bottom: 16px;
+  padding-bottom: 14px;
+
+  @media (max-width: 600px) {
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+  }
 `;
 
 const Title = styled.h1`
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 800;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   color: ${({ theme }) => theme.colors.goldLight};
+
+  @media (max-width: 600px) {
+    font-size: 22px;
+  }
 `;
 
 const Subtitle = styled.p`
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
   color: ${({ theme }) => theme.colors.textMuted};
   line-height: 1.5;
+
+  @media (max-width: 600px) {
+    font-size: 13px;
+  }
 `;
 
 const Section = styled.section`
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
   border-radius: 10px;
-  padding: 20px;
-  margin-bottom: 20px;
+  padding: 18px;
+  margin-bottom: 16px;
+
+  @media (max-width: 600px) {
+    padding: 14px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
 `;
 
 const SectionHeading = styled.h2`
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
-  margin: 0 0 12px 0;
+  margin: 0 0 10px 0;
   color: ${({ theme }) => theme.colors.text};
+
+  @media (max-width: 600px) {
+    font-size: 15px;
+  }
 `;
 
 const Text = styled.p`
@@ -54,16 +81,22 @@ const Text = styled.p`
   &:last-child {
     margin-bottom: 0;
   }
+
+  @media (max-width: 600px) {
+    font-size: 13px;
+    line-height: 1.5;
+  }
 `;
 
 const FeatureGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-top: 14px;
+  gap: 12px;
+  margin-top: 12px;
 
-  @media (max-width: 600px) {
+  @media (max-width: 640px) {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 `;
 
@@ -78,6 +111,10 @@ const FeatureItem = styled.div`
     font-size: 15px;
     font-weight: 700;
     color: ${({ theme }) => theme.colors.text};
+
+    @media (max-width: 600px) {
+      font-size: 14px;
+    }
   }
 
   p {
@@ -85,6 +122,10 @@ const FeatureItem = styled.div`
     font-size: 13px;
     color: ${({ theme }) => theme.colors.textMuted};
     line-height: 1.5;
+
+    @media (max-width: 600px) {
+      font-size: 12px;
+    }
   }
 `;
 
@@ -93,6 +134,10 @@ const TechStackList = styled.div`
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 10px;
+
+  @media (max-width: 600px) {
+    gap: 6px;
+  }
 `;
 
 const TechBadge = styled.span`
@@ -103,17 +148,27 @@ const TechBadge = styled.span`
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 4px;
+
+  @media (max-width: 600px) {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
 `;
 
 const AuthorCard = styled.div`
   background: ${({ theme }) => theme.colors.surfaceLight};
   border: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
   border-radius: 8px;
-  padding: 18px;
-  margin-top: 14px;
+  padding: 16px;
+  margin-top: 12px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+
+  @media (max-width: 600px) {
+    padding: 12px;
+    gap: 8px;
+  }
 `;
 
 const LinkRow = styled.div`
@@ -121,6 +176,10 @@ const LinkRow = styled.div`
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
+
+  @media (max-width: 600px) {
+    gap: 10px;
+  }
 `;
 
 const ExtLink = styled.a`
@@ -132,6 +191,10 @@ const ExtLink = styled.a`
   &:hover {
     color: ${({ theme }) => theme.colors.goldLight};
     text-decoration: underline;
+  }
+
+  @media (max-width: 600px) {
+    font-size: 12px;
   }
 `;
 
