@@ -186,8 +186,11 @@ export function GameResults({ donkeyPlayer, isHost, onPlayAgain, onLeave }) {
           <LoserText>
             {loserName} LOST THE GAME!
           </LoserText>
-          <div style={{ color: '#ffd166', fontSize: 13, marginTop: 4, fontWeight: 700 }}>
-            {loserName} is officially the DONKEY! 🫏
+          <div style={{ color: '#ffd166', fontSize: 15, marginTop: 6, fontWeight: 800 }}>
+            👑 DONKEY TITLE: {loserName} 🫏
+          </div>
+          <div style={{ color: '#fca5a5', fontSize: 12, marginTop: 4 }}>
+            Last player remaining with cards in hand
           </div>
         </LoserBox>
 
@@ -199,11 +202,11 @@ export function GameResults({ donkeyPlayer, isHost, onPlayAgain, onLeave }) {
         {isLocked ? (
           <CountdownBadge>
             <Clock size={14} />
-            Showing results for {secondsRemaining}s...
+            Showcasing Donkey: {secondsRemaining}s remaining...
           </CountdownBadge>
         ) : (
           <CountdownBadge style={{ background: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.4)', color: '#34d399' }}>
-            Ready for next round
+            Results showcase finished. Ready for next match!
           </CountdownBadge>
         )}
 
@@ -213,19 +216,19 @@ export function GameResults({ donkeyPlayer, isHost, onPlayAgain, onLeave }) {
               $primary
               disabled={isLocked}
               onClick={() => !isLocked && onPlayAgain()}
-              title={isLocked ? `Please wait ${secondsRemaining}s` : 'Start a new match'}
+              title={isLocked ? `Showcasing results... (${secondsRemaining}s remaining)` : 'Start a new match'}
             >
               <RefreshCw size={17} /> Play Again {isLocked ? `(${secondsRemaining}s)` : ''}
             </ActionButton>
           ) : (
             <Subtitle style={{ fontSize: '13px', margin: 'auto' }}>
-              {isLocked ? `Waiting ${secondsRemaining}s...` : 'Waiting for host to restart match...'}
+              {isLocked ? `Showcasing Donkey for ${secondsRemaining}s...` : 'Waiting for host to restart match...'}
             </Subtitle>
           )}
           <ActionButton
             disabled={isLocked}
             onClick={() => !isLocked && onLeave()}
-            title={isLocked ? `Please wait ${secondsRemaining}s` : 'Leave Room'}
+            title={isLocked ? `Showcasing results... (${secondsRemaining}s remaining)` : 'Leave Room'}
           >
             <LogOut size={17} /> Leave Room {isLocked ? `(${secondsRemaining}s)` : ''}
           </ActionButton>

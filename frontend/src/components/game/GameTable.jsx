@@ -331,7 +331,11 @@ export function GameTable({ onLeave }) {
   };
 
   const handlePlayAgain = () => {
-    socket.emit('start_game', { roomCode: roomId });
+    socket.emit('start_game', { roomCode: roomId }, (res) => {
+      if (res && res.success) {
+        useGameStore.getState().setDonkeyAnnouncement(null);
+      }
+    });
   };
 
   return (

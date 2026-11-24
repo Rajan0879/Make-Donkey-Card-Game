@@ -54,10 +54,10 @@ describe('Deck Creation & Distribution Tests', () => {
     expect(players).toContain(aceHolderId);
   });
 
-  it('distributes cards correctly for 5 players (9 each, 3 unused, Ace of Spades never excluded)', () => {
+  it('distributes cards correctly for 5 players (9 each, 3 unused lowest ranks: ♥3, ♦3, ♣3, ♠A never excluded)', () => {
     const players = ['p1', 'p2', 'p3', 'p4', 'p5'];
     
-    // Run multiple times to ensure randomized 3-card exclusion never excludes Ace of Spades
+    // Run multiple times to verify consistency
     for (let i = 0; i < 20; i++) {
       const { hands, unusedCards, aceHolderId } = distributeCards(players);
 
@@ -65,8 +65,26 @@ describe('Deck Creation & Distribution Tests', () => {
         expect(hands[p]).toHaveLength(9);
       }
       expect(unusedCards).toHaveLength(3);
+      
+      const unusedIds = unusedCards.map(c => c.id).sort();
+      expect(unusedIds).toEqual(['clubs-3', 'diamonds-3', 'hearts-3']);
+      
+      // Verify Ace of Spades is never omitted
       expect(unusedCards.some(c => c.id === ACE_OF_SPADES_ID)).toBe(false);
       expect(players).toContain(aceHolderId);
+
+      // Verify all remaining cards are unique and total 45
+      const allDealtCards = Object.values(hands).flat();
+      expect(allDealtCards).toHaveLength(45);
+      const dealtIds = new Set(allDealtCards.map(c => c.id));
+      expect(dealtIds.size).toBe(45);
+
+      // Verify none of the omitted 3s are in anyone's hand
+      expect(dealtIds.has('clubs-3')).toBe(false);
+      expect(dealtIds.has('diamonds-3')).toBe(false);
+      expect(dealtIds.has('hearts-3')).toBe(false);
+      // But ♠3 is still in play
+      expect(dealtIds.has('spades-3')).toBe(true);
     }
   });
 

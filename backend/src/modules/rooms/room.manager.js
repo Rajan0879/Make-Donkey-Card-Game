@@ -123,7 +123,9 @@ export class RoomManager {
     const room = this.getRoom(roomCode);
     if (!room) return { canStart: false, error: 'Room not found.' };
     if (room.hostId !== hostUserId) return { canStart: false, error: 'Only the room host can start the game.' };
-    if (room.status !== GAME_STATUS.WAITING) return { canStart: false, error: 'Game is already active.' };
+    if (room.status !== GAME_STATUS.WAITING && room.status !== GAME_STATUS.FINISHED) {
+      return { canStart: false, error: 'Game is already active.' };
+    }
     if (room.players.length < room.minPlayers) {
       return { canStart: false, error: `Minimum ${room.minPlayers} players required to play Make Donkey (currently ${room.players.length}).` };
     }

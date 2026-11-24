@@ -3,7 +3,8 @@ import { createDeck, shuffleDeck } from './game.deck.js';
 
 /**
  * Distributes cards to players according to player count rules.
- * For 5 players: 3 cards are set aside, ensuring Ace of Spades is NEVER excluded.
+ * For 5 players: 3 cards are omitted from the lowest rank (the three non-Spade 3s: ♥3, ♦3, ♣3),
+ * keeping Spades intact and ensuring Ace of Spades is NEVER excluded.
  * 
  * @param {Array<string>} playerIds Array of player IDs in seat order
  * @param {Array} [customDeck] Optional custom deck for testing
@@ -19,18 +20,21 @@ export function distributeCards(playerIds, customDeck = null) {
   const unusedCards = [];
 
   if (playerCount === 5) {
-    // 3 cards must be left out, but Ace of Spades must never be one of them
-    const nonAceCards = deck.filter(c => c.id !== ACE_OF_SPADES_ID);
-    const aceIndex = deck.findIndex(c => c.id === ACE_OF_SPADES_ID);
-    const aceCard = deck[aceIndex];
+    // 3 cards must be left out from lowest available rank (non-Spade 3s: hearts-3, diamonds-3, clubs-3)
+    const omittedCardIds = new Set(['hearts-3', 'diamonds-3', 'clubs-3']);
+    const cardsToOmit = [];
+    const remainingCards = [];
 
-    // Select 3 random non-Ace cards to remove
-    const shuffledNonAce = shuffleDeck(nonAceCards);
-    unusedCards.push(...shuffledNonAce.slice(0, 3));
-    
-    // Remaining 45 cards including Ace of Spades
-    const remainingDeck = [aceCard, ...shuffledNonAce.slice(3)];
-    deck = shuffleDeck(remainingDeck);
+    for (const card of deck) {
+      if (omittedCardIds.has(card.id)) {
+        cardsToOmit.push(card);
+      } else {
+        remainingCards.push(card);
+      }
+    }
+
+    unusedCards.push(...cardsToOmit);
+    deck = shuffleDeck(remainingCards);
   }
 
   const hands = {};

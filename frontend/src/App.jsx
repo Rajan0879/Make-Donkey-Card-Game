@@ -36,11 +36,14 @@ export function App() {
   const socket = useSocket();
   const { user } = useAuthStore();
   const { room, setRoom, clearRoom } = useRoomStore();
-  const { gameState, resetGame } = useGameStore();
+  const { gameState, donkeyAnnouncement, resetGame } = useGameStore();
 
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'rules' | 'tutorial' | 'about'
 
-  const isPlaying = gameState && gameState.status === 'playing';
+  // Remain in game view if playing OR finished (to display the 10-second donkey showcase)
+  const isPlaying = Boolean(
+    gameState && (gameState.status === 'playing' || gameState.status === 'finished' || donkeyAnnouncement)
+  );
 
   // 1. Initial route detection & direct link joining
   useEffect(() => {

@@ -8,6 +8,18 @@ import { SoundToggle } from '../common/SoundToggle.jsx';
 import { getPlayerAvatar } from '../../utils/avatarUtils.js';
 import { Copy, Check, Users, Play, Crown, LogOut, RotateCw, Loader2, AlertCircle, Wifi, WifiOff, UserX } from 'lucide-react';
 
+const LobbyWrapper = styled.div`
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-top: max(16px, env(safe-area-inset-top, 16px));
+  padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
+  padding-left: max(8px, env(safe-area-inset-left, 8px));
+  padding-right: max(8px, env(safe-area-inset-right, 8px));
+  box-sizing: border-box;
+`;
+
 const LobbyCard = styled.div`
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
@@ -15,13 +27,13 @@ const LobbyCard = styled.div`
   padding: 24px;
   max-width: 600px;
   width: calc(100% - 32px);
-  margin: 24px auto;
+  margin: 12px auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 
   @media (max-width: 600px) {
     padding: 16px;
-    width: calc(100% - 20px);
-    margin: 16px auto;
+    width: 100%;
+    margin: 8px auto;
   }
 `;
 
@@ -308,14 +320,15 @@ export function RoomLobby({ onLeave }) {
   const canStart = isHost && !notEnoughPlayers && unreadyPlayers.length === 0;
 
   return (
-    <LobbyCard>
-      <Header>
-        <div>
-          <Title>Game Lobby</Title>
-          <div style={{ color: '#888', fontSize: '13px', marginTop: 4 }}>
-            Players in room: {room.players.length}/6 (Min 3 required)
+    <LobbyWrapper>
+      <LobbyCard>
+        <Header>
+          <div>
+            <Title>Game Lobby</Title>
+            <div style={{ color: '#888', fontSize: '13px', marginTop: 4 }}>
+              Players in room: {room.players.length}/6 (Min 3 required)
+            </div>
           </div>
-        </div>
 
         <HeaderControls>
           <RefreshButton onClick={handleManualRefresh} title="Sync / Refresh Lobby">
@@ -438,5 +451,6 @@ export function RoomLobby({ onLeave }) {
         </Button>
       </ActionRow>
     </LobbyCard>
+  </LobbyWrapper>
   );
 }

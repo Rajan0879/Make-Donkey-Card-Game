@@ -241,7 +241,7 @@ export function RulesPage({ onStartPlaying }) {
               <tr>
                 <td>5 Players</td>
                 <td>9 cards each</td>
-                <td>3 cards removed (Ace of Spades is never removed)</td>
+                <td>3 lowest cards set aside (♥3, ♦3, ♣3 — ♠A & ♠3 preserved)</td>
               </tr>
               <tr>
                 <td>6 Players</td>

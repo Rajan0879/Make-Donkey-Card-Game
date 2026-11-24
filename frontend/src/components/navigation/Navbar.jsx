@@ -10,6 +10,9 @@ const NavContainer = styled.header`
   position: sticky;
   top: 0;
   z-index: 50;
+  padding-top: max(0px, env(safe-area-inset-top, 0px));
+  padding-left: max(0px, env(safe-area-inset-left, 0px));
+  padding-right: max(0px, env(safe-area-inset-right, 0px));
 `;
 
 const NavInner = styled.div`
@@ -20,6 +23,10 @@ const NavInner = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+
+  @media (max-width: 600px) {
+    padding: 10px 14px;
+  }
 `;
 
 const Brand = styled.button`
