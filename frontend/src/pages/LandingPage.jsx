@@ -4,14 +4,13 @@ import { useAuthStore } from '../store/authStore.js';
 import { useRoomStore } from '../store/roomStore.js';
 import { useSocket } from '../hooks/useSocket.js';
 import { PlayingCard } from '../components/cards/PlayingCard.jsx';
-import { SoundToggle } from '../components/common/SoundToggle.jsx';
-import { PlusCircle, LogIn, Check, Save, Loader2 } from 'lucide-react';
+import { PlusCircle, LogIn, Check, Save, Loader2, BookOpen, HelpCircle, Info } from 'lucide-react';
 
 const Container = styled.div`
   max-width: 900px;
   width: 100%;
   margin: 0 auto;
-  padding: 24px 16px;
+  padding: 24px 16px 40px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -19,31 +18,26 @@ const Container = styled.div`
   box-sizing: border-box;
 `;
 
-const TopNav = styled.div`
-  width: 100%;
-  max-width: 600px;
-  display: flex;
-  justify-content: flex-end;
-`;
-
 const Title = styled.h1`
-  font-size: 50px;
-  font-weight: 900;
+  font-size: 42px;
+  font-weight: 800;
   color: ${({ theme }) => theme.colors.goldLight};
-  text-shadow: 0 0 25px rgba(229, 184, 66, 0.4);
-  letter-spacing: 2px;
+  letter-spacing: 1px;
   text-align: center;
+  margin: 0;
 
   @media (max-width: 600px) {
-    font-size: 38px;
+    font-size: 32px;
   }
 `;
 
 const Tagline = styled.p`
-  font-size: 16px;
+  font-size: 15px;
   color: ${({ theme }) => theme.colors.textMuted};
   text-align: center;
   max-width: 550px;
+  margin: 0;
+  line-height: 1.5;
 `;
 
 const PreviewRow = styled.div`
@@ -69,12 +63,11 @@ const CardGrid = styled.div`
 const ActionCard = styled.div`
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
-  border-radius: 16px;
+  border-radius: 12px;
   padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  gap: 12px;
   box-sizing: border-box;
   width: 100%;
 `;
@@ -89,6 +82,7 @@ const Input = styled.input`
 
   &:focus {
     border-color: ${({ theme }) => theme.colors.gold};
+    outline: none;
   }
 `;
 
@@ -103,7 +97,6 @@ const NameBox = styled.div`
   flex-direction: column;
   gap: 10px;
   box-sizing: border-box;
-  overflow: hidden;
 `;
 
 const NameInputRow = styled.div`
@@ -130,9 +123,10 @@ const SaveButton = styled.button`
   background: ${({ $saved, theme }) =>
     $saved ? theme.colors.success : theme.colors.gold};
   color: ${({ $saved }) => ($saved ? '#fff' : '#000')};
-  font-weight: 800;
+  font-weight: 700;
   font-size: 13px;
   padding: 11px 16px;
+  border: none;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -140,12 +134,11 @@ const SaveButton = styled.button`
   gap: 6px;
   white-space: nowrap;
   flex-shrink: 0;
-  box-sizing: border-box;
-  transition: all 0.2s ease;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
 
   &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    opacity: 0.9;
   }
 
   @media (max-width: 480px) {
@@ -157,22 +150,69 @@ const SaveButton = styled.button`
 const PrimaryButton = styled.button`
   background: ${({ theme }) => theme.colors.gold};
   color: #000;
-  font-weight: 800;
+  font-weight: 700;
   font-size: 15px;
   padding: 12px;
+  border: none;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
 
-  &:hover {
-    background: ${({ theme }) => theme.colors.goldLight};
-    transform: translateY(-2px);
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 `;
 
-export function LandingPage({ onEnterLobby }) {
+const QuickLinksRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  max-width: 600px;
+  box-sizing: border-box;
+
+  @media (max-width: 520px) {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+`;
+
+const QuickLinkCard = styled.button`
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.surfaceBorder};
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: ${({ theme }) => theme.colors.text};
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  svg {
+    color: ${({ theme }) => theme.colors.goldLight};
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.surfaceLight};
+    border-color: ${({ theme }) => theme.colors.gold};
+  }
+`;
+
+export function LandingPage({ onEnterLobby, onNavigate }) {
   const socket = useSocket();
   const { user, setUsername } = useAuthStore();
   const { setRoom } = useRoomStore();
@@ -275,13 +315,9 @@ export function LandingPage({ onEnterLobby }) {
 
   return (
     <Container>
-      <TopNav>
-        <SoundToggle />
-      </TopNav>
-
       <Title>MAKE DONKEY</Title>
       <Tagline>
-        The classic multiplayer card game. Follow the starting suit, avoid off-suit penalties, and don't be the last player holding cards!
+        Real-time multiplayer card game. Follow the starting suit, avoid off-suit penalty cards, and shed your hand to win.
       </Tagline>
 
       <PreviewRow>
@@ -293,7 +329,7 @@ export function LandingPage({ onEnterLobby }) {
       {/* Player Name Box with Save Button */}
       <NameBox>
         <label style={{ fontSize: 13, color: '#96a89f', fontWeight: 600 }}>
-          Your Player Name (saved to your browser):
+          Your Player Name:
         </label>
         <NameInputRow>
           <NameInput
@@ -323,26 +359,26 @@ export function LandingPage({ onEnterLobby }) {
 
       <CardGrid>
         <ActionCard>
-          <h3 style={{ color: '#e5b842', fontSize: 18 }}>Host a Game</h3>
-          <p style={{ color: '#888', fontSize: 13 }}>
-            Create a private game room and share the room code with 2 to 5 friends.
+          <h3 style={{ color: '#e5b842', fontSize: 17, margin: 0, fontWeight: 700 }}>Host a Game</h3>
+          <p style={{ color: '#96a89f', fontSize: 13, margin: 0, lineHeight: 1.4 }}>
+            Create a private game room and share the 6-character code with 2 to 5 friends.
           </p>
           <PrimaryButton onClick={handleCreate} disabled={isCreating}>
             {isCreating ? (
               <>
-                <Loader2 size={18} className="animate-spin" /> Creating Room...
+                <Loader2 size={16} className="animate-spin" /> Creating Room...
               </>
             ) : (
               <>
-                <PlusCircle size={18} /> Create Room
+                <PlusCircle size={16} /> Create Room
               </>
             )}
           </PrimaryButton>
         </ActionCard>
 
         <ActionCard>
-          <h3 style={{ color: '#e5b842', fontSize: 18 }}>Join a Game</h3>
-          <p style={{ color: '#888', fontSize: 13 }}>
+          <h3 style={{ color: '#e5b842', fontSize: 17, margin: 0, fontWeight: 700 }}>Join a Game</h3>
+          <p style={{ color: '#96a89f', fontSize: 13, margin: 0, lineHeight: 1.4 }}>
             Enter a 6-character room code from your friend to join their lobby.
           </p>
           <Input
@@ -354,16 +390,33 @@ export function LandingPage({ onEnterLobby }) {
           <PrimaryButton onClick={handleJoin} disabled={isJoining}>
             {isJoining ? (
               <>
-                <Loader2 size={18} className="animate-spin" /> Joining Room...
+                <Loader2 size={16} className="animate-spin" /> Joining Room...
               </>
             ) : (
               <>
-                <LogIn size={18} /> Join Room
+                <LogIn size={16} /> Join Room
               </>
             )}
           </PrimaryButton>
         </ActionCard>
       </CardGrid>
+
+      {/* Clean Quick Access Section */}
+      <QuickLinksRow>
+        <QuickLinkCard onClick={() => onNavigate && onNavigate('rules')}>
+          <BookOpen size={16} />
+          <span>Game Rules</span>
+        </QuickLinkCard>
+        <QuickLinkCard onClick={() => onNavigate && onNavigate('tutorial')}>
+          <HelpCircle size={16} />
+          <span>How to Play</span>
+        </QuickLinkCard>
+        <QuickLinkCard onClick={() => onNavigate && onNavigate('about')}>
+          <Info size={16} />
+          <span>About Project</span>
+        </QuickLinkCard>
+      </QuickLinksRow>
     </Container>
   );
 }
+

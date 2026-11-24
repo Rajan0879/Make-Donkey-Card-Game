@@ -7,6 +7,11 @@ import { useGameStore } from './store/gameStore.js';
 import { useAuthStore } from './store/authStore.js';
 import { useSocket } from './hooks/useSocket.js';
 import { LandingPage } from './pages/LandingPage.jsx';
+import { RulesPage } from './pages/RulesPage.jsx';
+import { TutorialPage } from './pages/TutorialPage.jsx';
+import { AboutPage } from './pages/AboutPage.jsx';
+import { Navbar } from './components/navigation/Navbar.jsx';
+import { Footer } from './components/navigation/Footer.jsx';
 import { RoomLobby } from './components/lobby/RoomLobby.jsx';
 import { GameTable } from './components/game/GameTable.jsx';
 
@@ -20,11 +25,20 @@ const AppContainer = styled.div`
   flex-direction: column;
 `;
 
+const ContentArea = styled.main`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+`;
+
 export function App() {
   const socket = useSocket();
   const { user } = useAuthStore();
   const { room, setRoom, clearRoom } = useRoomStore();
   const { gameState, resetGame } = useGameStore();
+
+  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'rules' | 'tutorial' | 'about'
 
   const isPlaying = gameState && gameState.status === 'playing';
 
@@ -46,6 +60,12 @@ export function App() {
           }
         });
       }
+    } else if (path === '/rules') {
+      setActiveTab('rules');
+    } else if (path === '/tutorial' || path === '/how-to-play') {
+      setActiveTab('tutorial');
+    } else if (path === '/about') {
+      setActiveTab('about');
     }
   }, [socket, user?.username, room, setRoom, clearRoom, resetGame]);
 
@@ -63,23 +83,31 @@ export function App() {
       if (currentPath !== targetPath) {
         window.history.pushState({ stage: 'room', code: room.code }, '', targetPath);
       }
-    } else {
-      if (currentPath !== '/') {
-        window.history.pushState({ stage: 'landing' }, '', '/');
+    } else if (!room && !isPlaying) {
+      const targetPath = activeTab === 'home' ? '/' : `/${activeTab}`;
+      if (currentPath !== targetPath) {
+        window.history.pushState({ stage: activeTab }, '', targetPath);
       }
     }
-  }, [isPlaying, gameState?.roomId, room]);
+  }, [isPlaying, gameState?.roomId, room, activeTab]);
 
   // 3. Handle browser Back/Forward buttons smoothly
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname;
       if (path === '/') {
+        setActiveTab('home');
         if (room) {
           socket.emit('leave_room', { roomCode: room.code });
           clearRoom();
           resetGame();
         }
+      } else if (path === '/rules') {
+        setActiveTab('rules');
+      } else if (path === '/tutorial' || path === '/how-to-play') {
+        setActiveTab('tutorial');
+      } else if (path === '/about') {
+        setActiveTab('about');
       }
     };
     window.addEventListener('popstate', handlePopState);
@@ -90,22 +118,45 @@ export function App() {
     window.history.pushState(null, '', '/');
     resetGame();
     clearRoom();
+    setActiveTab('home');
   };
+
+  const handleNavigate = (tab) => {
+    setActiveTab(tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const showHeaderAndFooter = !isPlaying && !room;
 
   return (
     <ThemeProvider theme={theme}>
       <GlobalStyle />
       <AppContainer>
-        {isPlaying ? (
-          <GameTable onLeave={handleLeaveAll} />
-        ) : room ? (
-          <RoomLobby onLeave={handleLeaveAll} />
-        ) : (
-          <LandingPage onEnterLobby={() => {}} />
+        {showHeaderAndFooter && (
+          <Navbar activePage={activeTab} onNavigate={handleNavigate} />
         )}
+
+        <ContentArea>
+          {isPlaying ? (
+            <GameTable onLeave={handleLeaveAll} />
+          ) : room ? (
+            <RoomLobby onLeave={handleLeaveAll} />
+          ) : activeTab === 'rules' ? (
+            <RulesPage onStartPlaying={() => handleNavigate('home')} />
+          ) : activeTab === 'tutorial' ? (
+            <TutorialPage onStartPlaying={() => handleNavigate('home')} />
+          ) : activeTab === 'about' ? (
+            <AboutPage />
+          ) : (
+            <LandingPage onEnterLobby={() => {}} onNavigate={handleNavigate} />
+          )}
+        </ContentArea>
+
+        {showHeaderAndFooter && <Footer onNavigate={handleNavigate} />}
       </AppContainer>
     </ThemeProvider>
   );
 }
+
 
 export default App;
